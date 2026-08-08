@@ -71,6 +71,7 @@ Critical path is the **runtime-weighted** longest path over this DAG. In profili
 
 ## References
 
-- Pan et al. 2025. *KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows.* [arXiv:2507.07400](https://arxiv.org/abs/2507.07400)
-- Topcuoglu et al. 2002. HEFT scheduling. IEEE TPDS.
-- LangGraph — graph-based agent workflows
+- Pan et al. 2025. *KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows.* arXiv:2507.07400.
+- Pearson et al. 2026. *Graph-Based Agentic AI with LangGraph: Workflow Pathways for Long-Running Stateful Business Processes.* [arXiv:2607.19297](https://arxiv.org/abs/2607.19297).
+- H. Topcuoglu, S. Hariri and Min-You Wu, "Performance-effective and low-complexity task scheduling for heterogeneous computing," in IEEE Transactions on Parallel and Distributed Systems, vol. 13, no. 3, pp. 260-274, March 2002, doi: 10.1109/71.993206.
+- Wu, Q., Bansal, G., Zhang, J., Wu, Y., Li, B., Zhu, E., ... & Wang, C. (2023). AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. arXiv preprint arXiv:2308.08155.
