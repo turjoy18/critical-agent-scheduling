@@ -1,22 +1,24 @@
 # Critical-Agent Scheduling for Multi-Agent LLM Systems
 
-Empirical profiling and early systems work on **which agents dominate end-to-end latency** in multi-agent LLM workflows, plus a conceptual reproduction of **KVFlow**-style steps-to-execution (STE) and prefix-cache policies.
+Empirical profiling and early systems work on **which agents dominate end-to-end latency** in multi-agent LLM workflows, plus a modular discrete-event **scheduler** (FIFO, Critical-Path-First, Least-Slack-First, HEFT) and a conceptual reproduction of **KVFlow** prefix-cache policies.
 
 > Same workflow DAG, two control knobs: **compute priority** (who runs when) vs **cache lifetime** (which KV prefixes to keep / prefetch).
 
 ## Motivation
 
-Multi-agent systems often run planner → parallel researchers → join → critic → writer. Latency is usually dominated by a small set of *critical* agents on the longest dependency path—not by every agent equally. This repo validates that empirically, then explores related cache-aware ideas from KVFlow.
+Multi-agent systems often run planner → parallel researchers → join → critic → writer. Latency is usually dominated by a small set of *critical* agents on the longest dependency path—not by every agent equally. This repository validates that empirically, implements priority-aware scheduling algorithms under resource contention, and explores cache-aware prefix policies.
 
 ## Repository layout
 
-| Path | Purpose |
-|------|---------|
-| `simulated/` | Sleep-based LangGraph agents, traces, critical-path analysis |
-| `llm/` | OpenRouter LLM agents, traces, plots |
-| `kvflow/` | Pure-Python Agent Step Graph + LRU / STE / STE+prefetch cache sim |
-| `docs/REPORT.md` | Initial profiling report (local; may be gitignored) |
-| `requirements.txt` | Python dependencies |
+| Path               | Purpose                                                           |
+| ------------------ | ----------------------------------------------------------------- |
+| `simulated/`       | Sleep-based LangGraph agents, traces, critical-path analysis      |
+| `llm/`             | OpenRouter LLM agents, traces, plots                              |
+| `kvflow/`          | Pure-Python Agent Step Graph + LRU / STE / STE+prefetch cache sim |
+| `scheduler/`       | Discrete-event scheduler (FIFO, CPF, Slack, HEFT) + live Groq API |
+| `docs/REPORT.md`   | Initial empirical profiling report                                |
+| `docs/SCHEDULING_REPORT.md` | Policy evaluation & benchmark report                     |
+| `requirements.txt` | Python dependencies                                               |
 
 ## Quick start
 
@@ -25,17 +27,32 @@ python -m venv .venv
 source .venv/Scripts/activate   # Windows Git Bash
 # source .venv/bin/activate     # Linux/macOS
 pip install -r requirements.txt
-cp env.example .env             # add OPENROUTER_API_KEY for llm/
+cp env.example .env             # add OPENROUTER_API_KEY and/or GROQ_API_KEY
 ```
 
-### Profiling (compute criticality)
+### 1. Profiling (compute criticality)
 
 ```bash
 cd simulated && python workflow.py && python analyze.py
 cd ../llm && python workflow_llm.py && python analyze_llm.py
 ```
 
-### KVFlow Layers 1–2 (conceptual; no GPU)
+### 2. Scheduling Policies (FIFO, CPF, Slack, HEFT)
+
+```bash
+# Run unit tests
+python -m unittest discover -s scheduler/tests -v
+
+# Run simulation sweeps (worker slots, contention, batch scaling, noise)
+python -m scheduler.experiment --out scheduler/results
+
+# (Optional) Run live Groq LLM validation
+python -m scheduler.live_runner --runs 2 --workers 2
+```
+
+See [`docs/SCHEDULING_REPORT.md`](docs/SCHEDULING_REPORT.md) for detailed evaluation results and plots.
+
+### 3. KVFlow Layers 1–2 (conceptual; no GPU)
 
 ```bash
 python -m kvflow.compare_criticality --traces simulated/traces.jsonl
@@ -57,21 +74,16 @@ planner
 
 Critical path is the **runtime-weighted** longest path over this DAG. In profiling, parallel researchers share the same structural depth, but the slowest peer (e.g. researcher_b) dominates critical-path frequency.
 
-## KVFlow snapshot
-
-- **Layer 1:** STE (structure-only) vs critical-path frequency — they need not agree.
-- **Layer 2:** Under tight prefix-cache capacity, **STE+prefetch** beats LRU on hit rate and stall (conceptual timings; not hardware parity).
-
 ## Status
 
 - [x] Simulated + LLM critical-path profiling
 - [x] KVFlow STE + cache-policy conceptual sim
-- [ ] Priority-aware ready-queue scheduling (FIFO vs critical-path-first / HEFT-style)
+- [x] Priority-aware ready-queue scheduling (FIFO vs Critical-Path-First vs Slack vs HEFT)
 - [ ] Joint compute + cache scheduling under contention
 
 ## References
 
 - Pan et al. 2025. *KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows.* arXiv:2507.07400.
-- Pearson et al. 2026. *Graph-Based Agentic AI with LangGraph: Workflow Pathways for Long-Running Stateful Business Processes.* [arXiv:2607.19297](https://arxiv.org/abs/2607.19297).
-- H. Topcuoglu, S. Hariri and Min-You Wu, "Performance-effective and low-complexity task scheduling for heterogeneous computing," in IEEE Transactions on Parallel and Distributed Systems, vol. 13, no. 3, pp. 260-274, March 2002, doi: 10.1109/71.993206.
-- Wu, Q., Bansal, G., Zhang, J., Wu, Y., Li, B., Zhu, E., ... & Wang, C. (2023). AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. arXiv preprint arXiv:2308.08155.
+- Pearson et al. 2026. *Graph-Based Agentic AI with LangGraph: Workflow Pathways for Long-Running Stateful Business Processes.* arXiv:2607.19297.
+- H. Topcuoglu, S. Hariri and Min-You Wu, "Performance-effective and low-complexity task scheduling for heterogeneous computing," in IEEE Transactions on Parallel and Distributed Systems, vol. 13, no. 3, pp. 260-274, March 2002.
+- Wu, Q. et al. (2023). AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. arXiv:2308.08155.
