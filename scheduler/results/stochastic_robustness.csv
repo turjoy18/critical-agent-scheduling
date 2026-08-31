@@ -1,0 +1,17 @@
+experiment,policy,num_workers,noise_std,num_trials,mean_makespan,std_makespan,mean_waiting_time,mean_cpath_delay
+stochastic_robustness,fifo,2,0.0,30,118.75,0.0,1.55,0.0
+stochastic_robustness,cpf,2,0.0,30,118.75,0.0,2.8171,0.0
+stochastic_robustness,slack,2,0.0,30,118.75,0.0,2.8171,0.0
+stochastic_robustness,heft,2,0.0,30,118.75,0.0,2.8171,0.0
+stochastic_robustness,fifo,2,0.1,30,118.6072,5.1509,1.5207,0.0
+stochastic_robustness,cpf,2,0.1,30,118.6072,5.1509,2.7325,0.0
+stochastic_robustness,slack,2,0.1,30,118.6072,5.1509,2.7325,0.0
+stochastic_robustness,heft,2,0.1,30,118.6072,5.1509,2.7325,0.0
+stochastic_robustness,fifo,2,0.25,30,124.5573,13.5363,1.6016,1.4703
+stochastic_robustness,cpf,2,0.25,30,124.5573,13.5363,2.7959,1.4703
+stochastic_robustness,slack,2,0.25,30,124.5573,13.5363,2.7959,1.4703
+stochastic_robustness,heft,2,0.25,30,124.5573,13.5363,2.7959,1.4703
+stochastic_robustness,fifo,2,0.5,30,118.2131,22.4049,1.4975,2.298
+stochastic_robustness,cpf,2,0.5,30,118.1666,22.3668,2.7417,2.2515
+stochastic_robustness,slack,2,0.5,30,118.1666,22.3668,2.7417,2.2515
+stochastic_robustness,heft,2,0.5,30,118.1666,22.3668,2.7417,2.2515

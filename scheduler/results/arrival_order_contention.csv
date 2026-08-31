@@ -1,0 +1,6 @@
+policy,num_workers,makespan,unconstrained_cpath,cpath_delay,avg_waiting_time,max_waiting_time,avg_turnaround_time,worker_utilization,total_compute_time,num_tasks,num_workflows,wait_planner,wait_researcher_a,wait_researcher_b,wait_researcher_c,wait_synthesizer,wait_critic,wait_final_writer,dispatch_order
+CPF,2,118.75,118.75,0.0,2.8171,19.72,68.3486,0.6287,149.32,7,1,0.0,19.72,0.0,0.0,0.0,0.0,0.0,"Critical-First (B, C, A)"
+HEFT,2,118.75,118.75,0.0,2.8171,19.72,68.3486,0.6287,149.32,7,1,0.0,19.72,0.0,0.0,0.0,0.0,0.0,"HEFT Upward Rank (B, C, A)"
+Slack (LSF),2,118.75,118.75,0.0,2.8171,19.72,68.3486,0.6287,149.32,7,1,0.0,19.72,0.0,0.0,0.0,0.0,0.0,"Least-Slack (B, C, A)"
+"FIFO (A, B, C)",2,118.75,118.75,0.0,1.55,10.85,67.0814,0.6287,149.32,7,1,0.0,0.0,0.0,10.85,0.0,0.0,0.0,"FIFO (A, B, C)"
+Anti-Critical FIFO,2,129.6,118.75,10.85,1.55,10.85,71.7314,0.5761,149.32,7,1,0.0,0.0,10.85,0.0,0.0,0.0,0.0,"Anti-Critical (A, C, B)"
