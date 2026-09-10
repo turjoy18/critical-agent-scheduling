@@ -252,7 +252,7 @@ class LiveWorkflowExecutor:
 
 
 def run_live_comparison(
-    num_runs: int = 2,
+    num_runs: int = 5,
     num_workers: int = 2,
     out_dir: Path = DEFAULT_OUT_DIR,
     pause_s: float = 4.0,
@@ -300,7 +300,7 @@ def run_live_comparison(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run live Groq LLM workflow scheduling validation.")
-    parser.add_argument("--runs", type=int, default=2, help="Number of workflow runs")
+    parser.add_argument("--runs", type=int, default=5, help="Number of workflow runs")
     parser.add_argument("--workers", type=int, default=2, help="Worker pool slots")
     parser.add_argument("--out", type=str, default=str(DEFAULT_OUT_DIR), help="Output directory")
     args = parser.parse_args()

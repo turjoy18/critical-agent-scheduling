@@ -1,5 +1,11 @@
 task,policy,num_workers,makespan_s
-Explain KV caching for multi-agent LLM workflows.,cpf,2,5.4896
-Explain KV caching for multi-agent LLM workflows.,fifo,2,22.6198
-Compare LangGraph and AutoGen.,cpf,2,45.0662
-Compare LangGraph and AutoGen.,fifo,2,35.0068
+Explain KV caching for multi-agent LLM workflows.,cpf,2,9.639
+Explain KV caching for multi-agent LLM workflows.,fifo,2,23.7815
+Compare LangGraph and AutoGen.,cpf,2,33.1265
+Compare LangGraph and AutoGen.,fifo,2,52.1579
+Summarize DAG scheduling methods in distributed systems.,cpf,2,34.2897
+Summarize DAG scheduling methods in distributed systems.,fifo,2,46.3119
+Describe critical path analysis in parallel workflows.,cpf,2,36.7223
+Describe critical path analysis in parallel workflows.,fifo,2,53.2452
+Explain KV caching for multi-agent LLM workflows.,cpf,2,37.8336
+Explain KV caching for multi-agent LLM workflows.,fifo,2,40.4726

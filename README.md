@@ -39,6 +39,8 @@ cd ../llm && python workflow_llm.py && python analyze_llm.py
 
 ### 2. Scheduling Policies (FIFO, CPF, Slack, HEFT)
 
+The discrete-event simulator loads **agent-level mean runtimes** from `llm/profiling_summary_llm.csv` (and `simulated/profiling_summary.csv` for the sleep profile)—not per-run trace replay. See [`docs/SCHEDULING_REPORT.md`](docs/SCHEDULING_REPORT.md) §3.
+
 ```bash
 # Run unit tests
 python -m unittest discover -s scheduler/tests -v
@@ -47,7 +49,7 @@ python -m unittest discover -s scheduler/tests -v
 python -m scheduler.experiment --out scheduler/results
 
 # (Optional) Run live Groq LLM validation
-python -m scheduler.live_runner --runs 2 --workers 2
+python -m scheduler.live_runner --runs 5 --workers 2
 ```
 
 See [`docs/SCHEDULING_REPORT.md`](docs/SCHEDULING_REPORT.md) for detailed evaluation results and plots.

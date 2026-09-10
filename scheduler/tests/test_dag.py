@@ -3,12 +3,61 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from scheduler.dag import (
     LLM_PROFILE_MEANS,
+    SIMULATED_PROFILE_MEANS,
     WorkflowDAG,
     create_research_writing_workflow,
+    load_profile_means,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_LLM_CSV = _REPO_ROOT / "llm" / "profiling_summary_llm.csv"
+_SIM_CSV = _REPO_ROOT / "simulated" / "profiling_summary.csv"
+
+# Known table values (2 d.p.) used throughout the scheduling report.
+_EXPECTED_LLM_MEANS = {
+    "planner": 21.40,
+    "researcher_a": 10.85,
+    "researcher_b": 41.47,
+    "researcher_c": 19.72,
+    "synthesizer": 21.49,
+    "critic": 13.61,
+    "final_writer": 20.78,
+}
+_EXPECTED_SIM_MEANS = {
+    "planner": 0.77,
+    "researcher_a": 1.52,
+    "researcher_b": 3.08,
+    "researcher_c": 1.60,
+    "synthesizer": 0.88,
+    "critic": 0.97,
+    "final_writer": 0.96,
+}
+
+
+class TestProfileMeansLoader(unittest.TestCase):
+    def test_load_llm_profile_means_from_csv(self) -> None:
+        self.assertTrue(_LLM_CSV.is_file(), f"Missing {_LLM_CSV}")
+        means = load_profile_means(_LLM_CSV)
+        self.assertEqual(set(means), set(_EXPECTED_LLM_MEANS))
+        for agent, expected in _EXPECTED_LLM_MEANS.items():
+            self.assertAlmostEqual(means[agent], expected, places=2)
+
+    def test_load_simulated_profile_means_from_csv(self) -> None:
+        self.assertTrue(_SIM_CSV.is_file(), f"Missing {_SIM_CSV}")
+        means = load_profile_means(_SIM_CSV)
+        self.assertEqual(set(means), set(_EXPECTED_SIM_MEANS))
+        for agent, expected in _EXPECTED_SIM_MEANS.items():
+            self.assertAlmostEqual(means[agent], expected, places=2)
+
+    def test_module_means_match_csv(self) -> None:
+        for agent, expected in _EXPECTED_LLM_MEANS.items():
+            self.assertAlmostEqual(LLM_PROFILE_MEANS[agent], expected, places=2)
+        for agent, expected in _EXPECTED_SIM_MEANS.items():
+            self.assertAlmostEqual(SIMULATED_PROFILE_MEANS[agent], expected, places=2)
 
 
 class TestWorkflowDAG(unittest.TestCase):

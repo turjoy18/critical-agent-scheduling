@@ -8,6 +8,7 @@ from scheduler.dag import (
     Task,
     WorkflowDAG,
     create_research_writing_workflow,
+    load_profile_means,
 )
 from scheduler.engine import SimulationEngine, SimulationResult, WorkerPool
 from scheduler.metrics import MetricsCollector, SchedulingMetrics
@@ -26,6 +27,7 @@ __all__ = [
     "create_research_writing_workflow",
     "LLM_PROFILE_MEANS",
     "SIMULATED_PROFILE_MEANS",
+    "load_profile_means",
     "SimulationEngine",
     "SimulationResult",
     "WorkerPool",

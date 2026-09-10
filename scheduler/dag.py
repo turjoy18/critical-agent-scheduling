@@ -2,32 +2,46 @@
 
 from __future__ import annotations
 
+import csv
 import random
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
 import networkx as nx
 
-# Empirical execution profiles (in seconds) from repository traces
-LLM_PROFILE_MEANS: dict[str, float] = {
-    "planner": 21.40,
-    "researcher_a": 10.85,
-    "researcher_b": 41.47,
-    "researcher_c": 19.72,
-    "synthesizer": 21.49,
-    "critic": 13.61,
-    "final_writer": 20.78,
-}
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_LLM_PROFILE_CSV = _REPO_ROOT / "llm" / "profiling_summary_llm.csv"
+_SIMULATED_PROFILE_CSV = _REPO_ROOT / "simulated" / "profiling_summary.csv"
 
-SIMULATED_PROFILE_MEANS: dict[str, float] = {
-    "planner": 0.77,
-    "researcher_a": 1.52,
-    "researcher_b": 3.08,
-    "researcher_c": 1.60,
-    "synthesizer": 0.88,
-    "critic": 0.97,
-    "final_writer": 0.96,
-}
+
+def load_profile_means(csv_path: Path | str, decimals: int = 2) -> dict[str, float]:
+    """Load agent-level mean runtimes from a profiling summary CSV.
+
+    Expects columns ``agent`` and ``avg_runtime_s``. Means are rounded to
+    ``decimals`` places so simulator tables stay stable across reloads.
+    """
+    path = Path(csv_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Profiling summary CSV not found: {path}")
+    means: dict[str, float] = {}
+    with path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames or "agent" not in reader.fieldnames:
+            raise ValueError(f"CSV missing 'agent' column: {path}")
+        if "avg_runtime_s" not in reader.fieldnames:
+            raise ValueError(f"CSV missing 'avg_runtime_s' column: {path}")
+        for row in reader:
+            agent = row["agent"].strip()
+            means[agent] = round(float(row["avg_runtime_s"]), decimals)
+    if not means:
+        raise ValueError(f"No agent means found in {path}")
+    return means
+
+
+# Empirical execution profiles (seconds): loaded from profiling CSVs.
+LLM_PROFILE_MEANS: dict[str, float] = load_profile_means(_LLM_PROFILE_CSV)
+SIMULATED_PROFILE_MEANS: dict[str, float] = load_profile_means(_SIMULATED_PROFILE_CSV)
 
 RESEARCH_WRITING_EDGES: list[tuple[str, str]] = [
     ("planner", "researcher_a"),
