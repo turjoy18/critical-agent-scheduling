@@ -67,6 +67,7 @@ class TestSchedulingPolicies(unittest.TestCase):
         self.assertIsNotNone(get_policy("cpf"))
         self.assertIsNotNone(get_policy("slack"))
         self.assertIsNotNone(get_policy("heft"))
+        self.assertIsNotNone(get_policy("couloir"))
         with self.assertRaises(ValueError):
             get_policy("nonexistent")
 

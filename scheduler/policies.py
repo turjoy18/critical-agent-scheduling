@@ -1,9 +1,10 @@
-"""Scheduling policies for multi-agent DAG execution: FIFO, CPF, Slack, and HEFT."""
+"""Scheduling policies for multi-agent DAG execution: FIFO, CPF, Slack, HEFT, Couloir."""
 
 from __future__ import annotations
 
 from typing import Callable
 
+from scheduler.couloir import couloir_policy
 from scheduler.dag import Task, WorkflowDAG
 
 PolicyFunction = Callable[[list[Task], float, dict[str, WorkflowDAG]], list[Task]]
@@ -128,6 +129,10 @@ POLICIES: dict[str, PolicyFunction] = {
     "cpf": critical_path_first_policy,
     "slack": least_slack_first_policy,
     "heft": heft_policy,
+    "couloir": couloir_policy,
+    # Two-phase ablation: CPF compute + STE cache (engine cache_mode="ste").
+    "two_phase": critical_path_first_policy,
+    "two_phase_cpf_ste": critical_path_first_policy,
 }
 
 

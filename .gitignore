@@ -4,5 +4,7 @@ __pycache__/
 *.pyc
 .DS_Store
 
-docs/
+# Keep markdown docs in git; ignore bulky FYP binaries in docs/
+docs/*
+!docs/*.md
 kvflow/results/
