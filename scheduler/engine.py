@@ -7,7 +7,8 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, Callable, Sequence
 
-from scheduler.couloir import CacheView, CouloirDecision, decide
+from scheduler.baselines import plan_lru_cache_actions, plan_ste_cache_actions
+from scheduler.couloir import CacheAction, CacheView, CouloirDecision, decide
 from scheduler.dag import Task, WorkflowDAG
 from scheduler.metrics import MetricsCollector, SchedulingMetrics
 
@@ -110,8 +111,8 @@ class JointCacheState:
             },
         )
 
-    def apply_decision(self, decision: CouloirDecision, selected_agent: str) -> dict[str, Any]:
-        for a in decision.cache_action.evict_agents:
+    def apply_action(self, action: CacheAction, selected_agent: str) -> dict[str, Any]:
+        for a in action.evict_agents:
             if self.agent_on_gpu.get(a):
                 self.agent_on_gpu[a] = False
                 self.evictions += 1
@@ -121,20 +122,21 @@ class JointCacheState:
         else:
             self.misses += 1
             self.recompute_tokens += self.prefix_tokens
-            # Free space if needed, then admit.
             while (
                 sum(self.prefix_tokens for a, on in self.agent_on_gpu.items() if on)
                 + self.prefix_tokens
                 > self.capacity_tokens
             ):
-                victims = [a for a, on in self.agent_on_gpu.items() if on and a != selected_agent]
+                victims = [
+                    a for a, on in self.agent_on_gpu.items() if on and a != selected_agent
+                ]
                 if not victims:
                     break
                 victim = victims[0]
                 self.agent_on_gpu[victim] = False
                 self.evictions += 1
             self.agent_on_gpu[selected_agent] = True
-        for a in decision.cache_action.prefetch_agents:
+        for a in action.prefetch_agents:
             if a == selected_agent:
                 continue
             free = self.capacity_tokens - sum(
@@ -144,10 +146,13 @@ class JointCacheState:
                 self.agent_on_gpu[a] = True
         return {
             "cache_hit": hit,
-            "keep": list(decision.cache_action.keep_agents),
-            "evict": list(decision.cache_action.evict_agents),
-            "prefetch": list(decision.cache_action.prefetch_agents),
+            "keep": list(action.keep_agents),
+            "evict": list(action.evict_agents),
+            "prefetch": list(action.prefetch_agents),
         }
+
+    def apply_decision(self, decision: CouloirDecision, selected_agent: str) -> dict[str, Any]:
+        return self.apply_action(decision.cache_action, selected_agent)
 
 
 class SimulationEngine:
@@ -161,13 +166,24 @@ class SimulationEngine:
         cache_capacity: int | None = None,
         cache_prefix_tokens: int = 20,
         joint_couloir: bool = False,
+        cache_mode: str | None = None,
     ) -> None:
         self.num_workers = num_workers
         self.policy_func = policy_func
         self.policy_name = policy_name
         self.cache_capacity = cache_capacity
         self.cache_prefix_tokens = cache_prefix_tokens
-        self.joint_couloir = joint_couloir or policy_name.strip().lower() == "couloir"
+        name = policy_name.strip().lower()
+        self.joint_couloir = joint_couloir or name == "couloir"
+        # cache_mode: none | lru | ste | couloir (default: couloir if joint, else none)
+        if cache_mode is not None:
+            self.cache_mode = cache_mode
+        elif self.joint_couloir:
+            self.cache_mode = "couloir"
+        elif name in ("two_phase", "two_phase_cpf_ste", "cpf_ste"):
+            self.cache_mode = "ste"
+        else:
+            self.cache_mode = "none"
 
     def run(
         self,
@@ -209,9 +225,11 @@ class SimulationEngine:
 
         agents = sorted({t.agent_type for t in task_map.values()})
         cache_state: JointCacheState | None = None
-        if self.cache_capacity is not None:
+        last_access: dict[str, float] = {a: -1.0 for a in agents}
+        use_cache = self.cache_capacity is not None and self.cache_mode != "none"
+        if use_cache:
             cache_state = JointCacheState(
-                capacity_tokens=self.cache_capacity,
+                capacity_tokens=self.cache_capacity or 1,
                 prefix_tokens=self.cache_prefix_tokens,
                 agents=agents,
             )
@@ -221,8 +239,7 @@ class SimulationEngine:
             if not ready_queue or not worker_pool.idle_workers:
                 return
 
-            decision: CouloirDecision | None = None
-            if self.joint_couloir:
+            if self.cache_mode == "couloir" or self.joint_couloir:
                 decision = decide(
                     list(ready_queue),
                     current_time,
@@ -243,19 +260,33 @@ class SimulationEngine:
                 finish_t = worker_pool.assign_task(idle_worker, next_task, current_time)
 
                 cache_meta: dict[str, Any] = {}
-                if cache_state is not None and decision is not None:
-                    # Re-decide for the actual head if queue mutated mid-dispatch.
-                    step = decide(
-                        [next_task, *ready_queue],
-                        current_time,
-                        workflows_map,
-                        cache=cache_state.view(),
+                if cache_state is not None:
+                    remaining = [next_task, *ready_queue]
+                    view = cache_state.view()
+                    if self.cache_mode == "couloir" or self.joint_couloir:
+                        step = decide(
+                            remaining, current_time, workflows_map, cache=view
+                        )
+                        action = step.cache_action
+                        cache_meta["utilities"] = {
+                            s.task_id: round(s.utility, 4) for s in step.scores
+                        }
+                    elif self.cache_mode == "ste":
+                        action = plan_ste_cache_actions(
+                            next_task, remaining, workflows_map, view
+                        )
+                    elif self.cache_mode == "lru":
+                        action = plan_lru_cache_actions(
+                            next_task, remaining, view, last_access, current_time
+                        )
+                    else:
+                        action = CacheAction(keep_agents=[next_task.agent_type])
+                    cache_meta.update(
+                        cache_state.apply_action(action, next_task.agent_type)
                     )
-                    cache_meta = cache_state.apply_decision(step, next_task.agent_type)
                     cache_meta["selected_task_id"] = next_task.task_id
-                    cache_meta["utilities"] = {
-                        s.task_id: round(s.utility, 4) for s in step.scores
-                    }
+                    cache_meta["cache_mode"] = self.cache_mode
+                    last_access[next_task.agent_type] = current_time
 
                 event_log.append(
                     {

@@ -130,6 +130,9 @@ POLICIES: dict[str, PolicyFunction] = {
     "slack": least_slack_first_policy,
     "heft": heft_policy,
     "couloir": couloir_policy,
+    # Two-phase ablation: CPF compute + STE cache (engine cache_mode="ste").
+    "two_phase": critical_path_first_policy,
+    "two_phase_cpf_ste": critical_path_first_policy,
 }
 
 

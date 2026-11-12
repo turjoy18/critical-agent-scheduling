@@ -1,0 +1,39 @@
+{
+  "dags": [
+    "writing",
+    "chain",
+    "fanout"
+  ],
+  "configs": [
+    [
+      "fifo",
+      "none"
+    ],
+    [
+      "cpf",
+      "none"
+    ],
+    [
+      "heft",
+      "none"
+    ],
+    [
+      "fifo",
+      "lru"
+    ],
+    [
+      "cpf",
+      "ste"
+    ],
+    [
+      "two_phase",
+      "ste"
+    ],
+    [
+      "couloir",
+      "couloir"
+    ]
+  ],
+  "rows": 135,
+  "csv": "scheduler\\results\\couloir_sweeps\\couloir_baseline_matrix.csv"
+}
