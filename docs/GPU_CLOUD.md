@@ -1,6 +1,8 @@
 # Cloud / free GPU playbook (≤ US$50)
 
-**Decision (2026-11):** no department GPU (#13 closed). Use Colab/Kaggle for smoke; RunPod/Vast only if engine gate needs a real SGLang + 8B bring-up.
+**Paused (2026-11):** do not run paid GPU until after mentor review — design may change. When resumed: Colab/Kaggle free smoke first; RunPod/Vast only for equal-citizen gate. Expect real RadixAttention results between scoped and type-keyed sim numbers (genuine shared system prompts).
+
+**Decision:** no department GPU (#13 closed).
 
 ## Tier ladder
 

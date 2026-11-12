@@ -1,6 +1,6 @@
 # Couloir: Joint Compute and Prefix-Cache Scheduling for Multi-Agent LLM Workflows
 
-**Status:** softcopy draft (sim-primary). Figures: `scheduler/results/couloir_sweeps/figures/`. Regen: see [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
+**Status:** softcopy draft (sim-primary) — **sim frozen**; mentor/GPU paused. Figures: `scheduler/results/couloir_sweeps/figures/`. See [`STATUS.md`](STATUS.md), [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
 
 ---
 
@@ -150,7 +150,7 @@ Noise sweep: fan-out ranking stable in mean. Live Gemini: smoke only.
 
 ### 5.9 Limitations / GPU status
 
-Conceptual prefill; synthetic non-writing DAGs. **Scoped cache gap survived → GPU stage is unlocked** for optional equal-citizen evidence (≤US$50, [`GPU_CLOUD.md`](GPU_CLOUD.md)). Still not required for arXiv/workshop softcopy.
+Conceptual prefill; synthetic non-writing DAGs. Scoped cache gap survived, so a future engine case study is justified — but **GPU/SGLang is paused** until after mentor direction (Colab/Kaggle free smoke first; ≤US$50 only if still aligned). See [`STATUS.md`](STATUS.md), [`GPU_CLOUD.md`](GPU_CLOUD.md).
 
 ---
 

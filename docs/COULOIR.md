@@ -59,4 +59,4 @@ Prefetch hits shorten duration by \(P/\lambda_{\mathrm{prefill}}\) (conceptual).
 
 ## Paper path
 
-Sim cache-joint claim → softcopy → arXiv / workshop. Pitch systems/LLM-serving mentors (not quantum). Scoped-cache recompute gap survived → optional GPU ≤US$50 equal-citizen track is unlocked.
+Sim **frozen** → softcopy → mentor (Dr. Zhou first, later) → arXiv / workshop. GPU/SGLang **paused** until mentor direction; then free Colab/Kaggle before any ≤US$50 spend. See [`STATUS.md`](STATUS.md).

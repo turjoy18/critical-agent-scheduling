@@ -1,6 +1,8 @@
 # Reproducibility
 
-## One-command paper artifacts
+**Sim is frozen** ([`STATUS.md`](STATUS.md)). Regenerate only to verify artifacts, not to iterate the claim.
+
+## Regen frozen artifacts
 
 ```bash
 python -m unittest discover -s scheduler/tests -v
