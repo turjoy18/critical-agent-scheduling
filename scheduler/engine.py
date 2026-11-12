@@ -8,7 +8,13 @@ from enum import IntEnum
 from typing import Any, Callable, Sequence
 
 from scheduler.baselines import plan_lru_cache_actions, plan_ste_cache_actions
-from scheduler.couloir import CacheAction, CacheView, CouloirDecision, decide
+from scheduler.couloir import (
+    CacheAction,
+    CacheView,
+    CouloirDecision,
+    CouloirWeights,
+    decide,
+)
 from scheduler.dag import Task, WorkflowDAG
 from scheduler.metrics import MetricsCollector, SchedulingMetrics
 
@@ -195,6 +201,7 @@ class SimulationEngine:
         joint_couloir: bool = False,
         cache_mode: str | None = None,
         enable_aging: bool = True,
+        weights: CouloirWeights | None = None,
     ) -> None:
         self.num_workers = num_workers
         self.policy_func = policy_func
@@ -202,6 +209,7 @@ class SimulationEngine:
         self.cache_capacity = cache_capacity
         self.cache_prefix_tokens = cache_prefix_tokens
         self.enable_aging = enable_aging
+        self.weights = weights
         name = policy_name.strip().lower()
         self.joint_couloir = joint_couloir or name == "couloir"
         # cache_mode: none | lru | ste | couloir (default: couloir if joint, else none)
@@ -274,6 +282,7 @@ class SimulationEngine:
                     current_time,
                     workflows_map,
                     cache=cache_state.view() if cache_state else None,
+                    weights=self.weights,
                     enable_aging=self.enable_aging,
                 )
                 ordered_tasks = decision.ordered_tasks
@@ -300,6 +309,7 @@ class SimulationEngine:
                             current_time,
                             workflows_map,
                             cache=view,
+                            weights=self.weights,
                             enable_aging=self.enable_aging,
                         )
                         action = step.cache_action

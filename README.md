@@ -26,10 +26,12 @@ pip install -r requirements.txt
 
 python -m unittest discover -s scheduler/tests -v
 python -m scheduler.couloir_sweep --all-dags --with-ablations
+python -m scheduler.weight_ablation
+python -m scheduler.batch_couloir
 python -m scheduler.plot_couloir
 ```
 
-Figures land in `scheduler/results/couloir_sweeps/figures/`.
+Figures land in `scheduler/results/couloir_sweeps/figures/`. Weight + batch/random CSVs land beside them.
 
 ### Optional live smoke
 

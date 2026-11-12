@@ -1,0 +1,22 @@
+{
+  "git_sha": "40952da32eea0a1b6379ceb48a08f50dcd4b3330",
+  "timestamp_iso": "2026-11-12T12:34:25Z",
+  "default_weights": {
+    "cp": 1.0,
+    "slack": 1.0,
+    "reuse": 0.75,
+    "evict": 0.5,
+    "age": 1.25
+  },
+  "leave_one_out": "scheduler\\results\\couloir_sweeps\\weight_leave_one_out.csv",
+  "sensitivity": "scheduler\\results\\couloir_sweeps\\weight_sensitivity.csv",
+  "batch_leave_one_out": "scheduler\\results\\couloir_sweeps\\weight_batch_leave_one_out.csv",
+  "scales": [
+    0.0,
+    0.25,
+    0.5,
+    1.0,
+    1.5,
+    2.0
+  ]
+}
