@@ -47,14 +47,26 @@ class WorkerPool:
     def idle_workers(self) -> list[Worker]:
         return [w for w in self.workers if w.current_task is None]
 
-    def assign_task(self, worker: Worker, task: Task, current_time: float) -> float:
-        """Assign task to worker, return finish timestamp."""
+    def assign_task(
+        self,
+        worker: Worker,
+        task: Task,
+        current_time: float,
+        duration: float | None = None,
+    ) -> float:
+        """Assign task to worker, return finish timestamp.
+
+        ``duration`` overrides ``task.actual_duration`` when cache hit/miss
+        adjusts prefill cost; the task field is updated to the effective value.
+        """
+        run_s = task.actual_duration if duration is None else duration
+        task.actual_duration = run_s
         worker.current_task = task
         task.assigned_worker = worker.worker_id
         task.start_time = current_time
-        task.finish_time = current_time + task.actual_duration
+        task.finish_time = current_time + run_s
         worker.busy_until = task.finish_time
-        worker.total_busy_time += task.actual_duration
+        worker.total_busy_time += run_s
         return task.finish_time
 
     def release_worker(self, worker_id: int) -> Worker:
@@ -79,6 +91,11 @@ class SimulationResult:
 PolicyFunction = Callable[[list[Task], float, dict[str, WorkflowDAG]], list[Task]]
 
 
+# Prefill throughput for miss→hit duration coupling (tok/s). Lower than
+# kvflow RECOMPUTE so conceptual prefixes produce visible makespan deltas.
+PREFILL_TOKENS_PER_SEC = 1024.0
+
+
 class JointCacheState:
     """Lightweight token-budget cache tied to agent types for Couloir joint mode."""
 
@@ -87,16 +104,26 @@ class JointCacheState:
         capacity_tokens: int,
         prefix_tokens: int = 20,
         agents: Sequence[str] | None = None,
+        prefill_tokens_per_sec: float = PREFILL_TOKENS_PER_SEC,
     ) -> None:
         if capacity_tokens < 1:
             raise ValueError("capacity_tokens must be >= 1")
         self.capacity_tokens = capacity_tokens
         self.prefix_tokens = prefix_tokens
+        self.prefill_tokens_per_sec = prefill_tokens_per_sec
         self.agent_on_gpu: dict[str, bool] = {a: False for a in (agents or [])}
         self.hits = 0
         self.misses = 0
         self.recompute_tokens = 0
         self.evictions = 0
+
+    def prefill_latency_s(self) -> float:
+        return self.prefix_tokens / self.prefill_tokens_per_sec
+
+    def effective_duration(self, base_duration: float, hit: bool) -> float:
+        """Profiled duration assumes cold prefill; a hit skips that cost."""
+        save = self.prefill_latency_s() if hit else 0.0
+        return max(0.05, base_duration - save)
 
     def view(self) -> CacheView:
         gpu = sum(
@@ -167,12 +194,14 @@ class SimulationEngine:
         cache_prefix_tokens: int = 20,
         joint_couloir: bool = False,
         cache_mode: str | None = None,
+        enable_aging: bool = True,
     ) -> None:
         self.num_workers = num_workers
         self.policy_func = policy_func
         self.policy_name = policy_name
         self.cache_capacity = cache_capacity
         self.cache_prefix_tokens = cache_prefix_tokens
+        self.enable_aging = enable_aging
         name = policy_name.strip().lower()
         self.joint_couloir = joint_couloir or name == "couloir"
         # cache_mode: none | lru | ste | couloir (default: couloir if joint, else none)
@@ -245,6 +274,7 @@ class SimulationEngine:
                     current_time,
                     workflows_map,
                     cache=cache_state.view() if cache_state else None,
+                    enable_aging=self.enable_aging,
                 )
                 ordered_tasks = decision.ordered_tasks
             else:
@@ -257,15 +287,20 @@ class SimulationEngine:
             while ready_queue and worker_pool.idle_workers:
                 next_task = ready_queue.pop(0)
                 idle_worker = worker_pool.idle_workers[0]
-                finish_t = worker_pool.assign_task(idle_worker, next_task, current_time)
 
+                # Cache plan + apply *before* assign so hit/miss can shorten duration.
                 cache_meta: dict[str, Any] = {}
+                run_s = next_task.actual_duration
                 if cache_state is not None:
                     remaining = [next_task, *ready_queue]
                     view = cache_state.view()
                     if self.cache_mode == "couloir" or self.joint_couloir:
                         step = decide(
-                            remaining, current_time, workflows_map, cache=view
+                            remaining,
+                            current_time,
+                            workflows_map,
+                            cache=view,
+                            enable_aging=self.enable_aging,
                         )
                         action = step.cache_action
                         cache_meta["utilities"] = {
@@ -284,9 +319,16 @@ class SimulationEngine:
                     cache_meta.update(
                         cache_state.apply_action(action, next_task.agent_type)
                     )
+                    hit = bool(cache_meta.get("cache_hit"))
+                    run_s = cache_state.effective_duration(next_task.actual_duration, hit)
                     cache_meta["selected_task_id"] = next_task.task_id
                     cache_meta["cache_mode"] = self.cache_mode
+                    cache_meta["effective_duration"] = round(run_s, 4)
                     last_access[next_task.agent_type] = current_time
+
+                finish_t = worker_pool.assign_task(
+                    idle_worker, next_task, current_time, duration=run_s
+                )
 
                 event_log.append(
                     {

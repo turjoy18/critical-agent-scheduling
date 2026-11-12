@@ -1,6 +1,6 @@
 # CS department GPU workstation request
 
-**You need to send this** (issue #13). Preferred ask / accept fallback below.
+**Status:** department GPU unavailable (#13 closed). Use [`GPU_CLOUD.md`](GPU_CLOUD.md) (Colab/Kaggle → ≤US$50 cloud). Archive below kept for reuse if a workstation opens later.
 
 ## Ask
 

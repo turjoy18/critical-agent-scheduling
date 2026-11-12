@@ -1,4 +1,7 @@
 {
+  "git_sha": "1b57177fbf8e0ebdc67439e4532f7fa3e10518dc",
+  "timestamp_unix": 1794484290.1181273,
+  "timestamp_iso": "2026-11-12T11:51:30Z",
   "dags": [
     "writing",
     "chain",
@@ -35,5 +38,19 @@
     ]
   ],
   "rows": 135,
-  "csv": "scheduler\\results\\couloir_sweeps\\couloir_baseline_matrix.csv"
+  "csv": "scheduler\\results\\couloir_sweeps\\couloir_baseline_matrix.csv",
+  "prefix_tokens": 512,
+  "cache_capacities": [
+    1024,
+    2048,
+    4096
+  ],
+  "worker_counts": [
+    1,
+    2,
+    3
+  ],
+  "profile": "llm",
+  "aging_ablation": "scheduler\\results\\couloir_sweeps\\aging_ablation.csv",
+  "noise_sweep": "scheduler\\results\\couloir_sweeps\\noise_sweep.csv"
 }

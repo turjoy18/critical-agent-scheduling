@@ -1,0 +1,7 @@
+task,policy,num_workers,makespan_s,provider,model
+Explain KV caching for multi-agent LLM workflows.,cpf,2,32.7302,gemini,gemini-flash-lite-latest
+Explain KV caching for multi-agent LLM workflows.,fifo,2,24.013,gemini,gemini-flash-lite-latest
+Explain KV caching for multi-agent LLM workflows.,couloir,2,9.8957,gemini,gemini-flash-lite-latest
+Compare LangGraph and AutoGen.,cpf,2,12.1482,gemini,gemini-flash-lite-latest
+Compare LangGraph and AutoGen.,fifo,2,32.5827,gemini,gemini-flash-lite-latest
+Compare LangGraph and AutoGen.,couloir,2,27.7854,gemini,gemini-flash-lite-latest

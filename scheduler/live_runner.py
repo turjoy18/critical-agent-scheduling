@@ -189,7 +189,7 @@ def run_live_comparison(
     num_runs: int = 5,
     num_workers: int = 2,
     out_dir: Path = DEFAULT_OUT_DIR,
-    pause_s: float = 4.0,
+    pause_s: float = 20.0,
     backend_name: str | None = None,
 ) -> pd.DataFrame:
     """Run live comparative evaluation of policies on a free-tier backend."""
@@ -199,36 +199,61 @@ def run_live_comparison(
     open(traces_file, "w", encoding="utf-8").close()
 
     backend = get_backend(backend_name)
-    print(f"Using free-tier backend: {backend.provider} / {backend.model}")
+    print(f"Using free-tier backend: {backend.provider} / {backend.model}", flush=True)
     policies = ["cpf", "fifo", "couloir"]
 
     for i in range(num_runs):
         task = TASKS[i % len(TASKS)]
-        print(f"\n--- Live Task {i + 1}/{num_runs}: {task} ---")
+        print(f"\n--- Live Task {i + 1}/{num_runs}: {task} ---", flush=True)
 
         for pol in policies:
-            print(f"Running Policy [{pol.upper()}] with {num_workers} worker slots...")
-            executor = LiveWorkflowExecutor(
-                num_workers=num_workers,
-                policy_name=pol,
-                backend=backend,
+            print(
+                f"Running Policy [{pol.upper()}] with {num_workers} worker slots...",
+                flush=True,
             )
-            wf_result = executor.run_workflow(task)
-            print(f"-> Completed [{pol.upper()}] in {wf_result['makespan']}s")
+            try:
+                executor = LiveWorkflowExecutor(
+                    num_workers=num_workers,
+                    policy_name=pol,
+                    backend=backend,
+                )
+                wf_result = executor.run_workflow(task)
+                print(
+                    f"-> Completed [{pol.upper()}] in {wf_result['makespan']}s",
+                    flush=True,
+                )
 
-            with open(traces_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(wf_result) + "\n")
+                with open(traces_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(wf_result) + "\n")
 
-            results.append(
-                {
-                    "task": task,
-                    "policy": pol,
-                    "num_workers": num_workers,
-                    "makespan_s": wf_result["makespan"],
-                    "provider": backend.provider,
-                    "model": backend.model,
-                }
-            )
+                results.append(
+                    {
+                        "task": task,
+                        "policy": pol,
+                        "num_workers": num_workers,
+                        "makespan_s": wf_result["makespan"],
+                        "provider": backend.provider,
+                        "model": backend.model,
+                    }
+                )
+            except Exception as e:
+                print(
+                    f"-> FAILED [{pol.upper()}]: {type(e).__name__}: {e}",
+                    flush=True,
+                )
+                results.append(
+                    {
+                        "task": task,
+                        "policy": pol,
+                        "num_workers": num_workers,
+                        "makespan_s": float("nan"),
+                        "provider": backend.provider,
+                        "model": backend.model,
+                        "error": f"{type(e).__name__}: {e}",
+                    }
+                )
+            # Persist partial results after each policy.
+            pd.DataFrame(results).to_csv(out_dir / "live_comparison.csv", index=False)
             time.sleep(pause_s)
 
     df = pd.DataFrame(results)
