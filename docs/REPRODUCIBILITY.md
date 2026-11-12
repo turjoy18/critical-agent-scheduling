@@ -5,6 +5,8 @@
 ```bash
 python -m unittest discover -s scheduler/tests -v
 python -m scheduler.couloir_sweep --all-dags --with-ablations
+python -m scheduler.weight_ablation
+python -m scheduler.batch_couloir
 python -m scheduler.plot_couloir
 ```
 
@@ -15,6 +17,9 @@ Outputs under `scheduler/results/couloir_sweeps/`:
 | `couloir_baseline_matrix.csv` | \(K\times C\) × policies × DAGs |
 | `aging_ablation.csv` | Couloir aging on/off |
 | `noise_sweep.csv` | Duration noise trials |
+| `weight_leave_one_out.csv` / `weight_sensitivity.csv` | Single-WF weight ablations |
+| `weight_batch_leave_one_out.csv` | Batch \(M=10\) leave-one-out |
+| `batch_multi_arrival.csv` / `random_solo_*.csv` | Multi-arrival + random DAGs |
 | `manifest.json` | git SHA, timestamp, config snapshot |
 | `figures/` | PNG/PDF + CSV tables |
 

@@ -1,0 +1,9 @@
+{
+  "git_sha": "40952da32eea0a1b6379ceb48a08f50dcd4b3330",
+  "timestamp_iso": "2026-11-12T12:32:57Z",
+  "batch": "scheduler\\results\\couloir_sweeps\\batch_multi_arrival.csv",
+  "random_solo": "scheduler\\results\\couloir_sweeps\\random_solo_matrix.csv",
+  "batch_summary": "scheduler\\results\\couloir_sweeps\\batch_summary.csv",
+  "random_solo_summary": "scheduler\\results\\couloir_sweeps\\random_solo_summary.csv",
+  "seed": 42
+}

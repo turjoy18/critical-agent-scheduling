@@ -90,33 +90,63 @@ Fan-out: CPF already beats FIFO by ranking long branches; Couloir’s prefetch h
 
 Two-phase matches CPF+STE on cache metrics, not Couloir—supporting the **joint** claim on the reuse axis.
 
-### 5.3 Aging ablation
+### 5.3 Weight sensitivity and leave-one-out
 
-On fan-out / writing at \(K=2\), Couloir with aging vs without (see `aging_ablation.csv`). Aging is required for starvation-freedom under adversarial ready sets (unit-tested); effect sizes on these single-workflow means are small—batch / multi-arrival settings are the intended stress case (future).
+**Single workflow:** dropping any term leaves fan-out makespan at 66.5 s and writing at 118.75 s (`weight_leave_one_out.csv`, `weight_sensitivity.csv`). Ready-set structure is too constrained for weights to reshuffle order.
 
-### 5.4 Noise sweep
+**Batch \(M=10\), \(K=4\), stagger 2 s** (`weight_batch_leave_one_out.csv`):
 
-Duration noise \(\sigma\in\{0,0.1,0.25,0.5\}\) (5 trials, seed 42). Mean makespan rankings are stable: Couloir ≤ CPF+STE ≤ FIFO+LRU on fan-out; writing remains near-tied on makespan with Couloir best on recompute (`noise_sweep.csv`).
+| Shape | Config | Makespan | Hit rate | Recompute |
+|-------|--------|----------|----------|-----------|
+| fanout | default | 295.5 | 0.91 | 3584 |
+| fanout | drop **reuse** | **300.0** | **0.56** | **17920** |
+| fanout | drop age | 295.0 | 0.98 | 1024 |
+| random | default | 333.8 | 0.98 | 1024 |
+| random | drop **reuse** | 335.3 | 0.88 | 5120 |
 
-### 5.5 Live free-tier (supporting)
+**Reuse is the load-bearing cache term under multi-arrival.** CP/slack/evict/age barely move batch makespan on these shapes; aging remains a starvation guard (unit-tested) rather than a mean-makespan lever.
 
-Gemini `gemini-flash-lite-latest`, \(K=2\), 2 tasks × {CPF, FIFO, Couloir}. Example makespans (s): task1 32.7 / 24.0 / 9.9; task2 12.1 / 32.6 / 27.8. Dominated by API latency; **not** a paper claim.
+### 5.4 Random DAGs + batch multi-arrival
 
-### 5.6 Limitations
+24 solo random layered DAGs (\(K=2\)): Couloir/CPF/two-phase **tie** mean makespan (82.2 s); Couloir/CPF hit rate 0.27 vs FIFO 0.00 (`random_solo_summary.csv`).
 
-Homogeneous workers; mean-duration model; conceptual token cache; no SGLang equal-citizen gate yet ([`GPU_CLOUD.md`](GPU_CLOUD.md)). Prefill coupling \(P/\lambda\) is an explicit modeling choice.
+Batch \(M\in\{1,5,10,20\}\), \(K=4\), \(C=2048\), stagger 2 s (`batch_multi_arrival.csv`):
+
+| Shape | \(M\) | FIFO makespan | CPF makespan | Couloir makespan | Couloir hit | CPF hit |
+|-------|-------|---------------|--------------|------------------|-------------|---------|
+| fanout | 20 | 600.5 | 587.5 | **586.5** | **0.95** | 0.92 |
+| random | 20 | 727.6 | **706.2** | 709.1 | **0.99** | 0.62 |
+| writing | 20 | 746.9 | 735.1 | **734.5** | **0.99** | 0.98 |
+
+**Takeaway:** cache-efficiency wins **generalize** (especially random batch: recompute 1024 vs CPF 31232). Makespan wins stay **small or absent**; CPF sometimes edges Couloir on random batch makespan while losing badly on recompute.
+
+### 5.5 Aging ablation
+
+Single-WF and batch: aging on/off ≈ same mean makespan (`aging_ablation.csv`, batch columns). Kept for starvation-freedom, not as a headline latency claim.
+
+### 5.6 Noise sweep
+
+Duration noise \(\sigma\in\{0,0.1,0.25,0.5\}\) (5 trials). Fan-out ranking Couloir ≤ CPF ≤ FIFO stable in mean; writing near-tied (`noise_sweep.csv`).
+
+### 5.7 Live free-tier (supporting)
+
+Gemini `gemini-flash-lite-latest`, \(K=2\). API-latency dominated; **not** a paper claim.
+
+### 5.8 Limitations / GPU status
+
+Homogeneous workers; conceptual prefill \(P/\lambda\); synthetic chain/fan-out/random durations (writing profiled). **SGLang equal-citizen gate deferred:** sim claim is workshop-credible on the *cache* axis; makespan breadth is still too thin to justify burning the ≤US$50 GPU budget yet. Next sim steps before GPU: harder contention (tighter \(C\), higher \(M/K\)), weight grid under batch only.
 
 ---
 
 ## 6. Discussion
 
-Couloir’s wins concentrate where (a) parallel width exceeds \(K\) and (b) prefetch can place prefixes on the critical path before dispatch. Linear DAGs and off-path hits improve efficiency metrics without moving makespan—honest scope for the claim. Engine validation would test whether the same utility maps onto real KV events.
+Couloir’s durable contribution is **joint reuse under multi-tenant arrivals**, not a universal makespan hammer. Single-WF fan-out (~2% over CPF) does not generalize; batch hit-rate/recompute does. Weight defaults are provisional—reuse is necessary under batch; other terms need a regime where dispatch order is contested.
 
 ---
 
 ## 7. Conclusion
 
-Couloir unifies compute priority and prefix-cache control for multi-agent LLM DAGs. Discrete-event results show joint gains on fan-out makespan and consistent cache-efficiency wins over STE and two-phase CPF→STE. We release the simulator, sweeps, figures, and this softcopy toward arXiv and a systems/MLSys workshop ([`VENUES.md`](VENUES.md)).
+Couloir unifies compute priority and prefix-cache control. Discrete-event evidence supports a **cache-joint** claim under batch/random multi-arrival, with a narrow single-WF fan-out makespan signal. Softcopy + regenerable artifacts target arXiv cs.DC and an MLSys/serving workshop ([`VENUES.md`](VENUES.md)); real-engine validation remains optional pending stronger sim breadth.
 
 ---
 
