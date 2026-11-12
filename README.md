@@ -2,21 +2,29 @@
 
 **Couloir** schedules multi-agent LLM DAGs under shared worker slots `K` and prefix-cache capacity `C` with **one utility** for ready-queue order and keep/evict/prefetch.
 
-Paper softcopy: [`docs/PAPER_DRAFT.md`](docs/PAPER_DRAFT.md) · Charter: [`docs/COULOIR.md`](docs/COULOIR.md) · Regen: [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md)
+| Doc | Purpose |
+|-----|---------|
+| [`docs/PAPER_DRAFT.md`](docs/PAPER_DRAFT.md) | Softcopy paper (sim-primary) |
+| [`docs/COULOIR.md`](docs/COULOIR.md) | Claim + glossary |
+| [`docs/STATUS.md`](docs/STATUS.md) | **Freeze / pause posture** |
+| [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) | Regen commands |
+| [`docs/VENUES.md`](docs/VENUES.md) | arXiv / workshop (mentor-shaped) |
 
 > Two knobs, one policy: **who runs when** and **which KV prefixes to keep**.
+
+**Sim track is frozen.** No new weight grids or DAG shapes unless a mentor asks. Mentor pitch and GPU are paused (months); see [`docs/STATUS.md`](docs/STATUS.md).
 
 ## Tracks
 
 | Track | Role | Status |
 |-------|------|--------|
-| **Sim** (`scheduler/`) | Source of truth for the claim | Done — matrix, ablations, figures |
-| **Live free-tier** | Gemini smoke (not paper claims) | Done — [`docs/LIVE_BACKEND.md`](docs/LIVE_BACKEND.md) |
-| **Engine** (optional) | SGLang + 8B case study | Deferred — [`docs/GPU_CLOUD.md`](docs/GPU_CLOUD.md), ≤US$50 |
+| **Sim** | Source of truth | **Frozen** — matrix, scoped-cache batch, softcopy |
+| **Live free-tier** | Gemini smoke | Done — not a paper claim |
+| **Engine** | SGLang case study | **Paused** — Colab first, only after mentor |
 
-**Cost policy:** free LLM APIs only; paid budget is GPU-only (≤ US$50).
+**Cost policy:** free LLM APIs only; GPU ≤ US$50 if ever resumed.
 
-## Quick start (<15 min)
+## Quick start (reproduce frozen artifacts)
 
 ```bash
 python -m venv .venv
@@ -25,56 +33,25 @@ python -m venv .venv
 pip install -r requirements.txt
 
 python -m unittest discover -s scheduler/tests -v
-python -m scheduler.couloir_sweep --all-dags --with-ablations
-python -m scheduler.weight_ablation
-python -m scheduler.batch_couloir
-python -m scheduler.plot_couloir
+# Optional full regen (do not treat as “keep iterating”):
+# see docs/REPRODUCIBILITY.md
 ```
 
-Figures land in `scheduler/results/couloir_sweeps/figures/`. Weight + batch/random CSVs land beside them.
-
-### Optional live smoke
-
-```bash
-cp env.example .env   # set GEMINI_API_KEY
-python -m scheduler.live_runner --backend gemini --runs 2 --workers 2
-```
-
-### Legacy profiling / KVFlow conceptual sims
-
-```bash
-cd simulated && python workflow.py && python analyze.py
-python -m kvflow.experiment --configs lru,ste,ste+prefetch --out kvflow/results
-python -m scheduler.experiment --out scheduler/results
-```
-
-## Layout
-
-| Path | Purpose |
-|------|---------|
-| `scheduler/` | Discrete-event engine, Couloir, sweeps, live_runner |
-| `kvflow/` | Conceptual STE/LRU prefix-cache sim |
-| `llm/`, `simulated/` | Profiling agents + critical-path analysis |
-| `docs/PAPER_DRAFT.md` | Softcopy paper |
-| `docs/VENUES.md` | arXiv / workshop plan |
-
-## Headline sim results (batch \(M=20\), workflow-scoped prefixes)
+Primary claim numbers: batch \(M=20\), **workflow-scoped** prefixes — see softcopy §5.5.
 
 | Shape | Couloir recompute | CPF recompute | Couloir makespan | CPF makespan |
 |-------|-------------------|---------------|------------------|--------------|
 | fanout | **2048** | 75776 | **587** | 604 |
 | random | **1536** | 76800 | **698** | 717 |
 
-Primary claim = **cache-joint under multi-arrival**, not single-WF makespan. See `docs/PAPER_DRAFT.md`.
+## Layout
 
-## Status
-
-- [x] Couloir utility + joint cache actions
-- [x] Multi-DAG sweeps (writing / chain / fanout) + aging/noise ablations
-- [x] Paper figures + softcopy draft
-- [x] Free-tier Gemini live smoke
-- [ ] Optional SGLang equal-citizen gate
-- [ ] arXiv upload (author list pending)
+| Path | Purpose |
+|------|---------|
+| `scheduler/` | Discrete-event Couloir + frozen sweep CSVs |
+| `kvflow/` | Conceptual STE/LRU sim |
+| `llm/`, `simulated/` | Profiling (historical) |
+| `docs/` | Paper + status |
 
 ## References
 
