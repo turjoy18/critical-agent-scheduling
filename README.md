@@ -1,21 +1,22 @@
 # Critical-Agent Scheduling for Multi-Agent LLM Systems
 
-Empirical profiling and early systems work on **which agents dominate end-to-end latency** in multi-agent LLM workflows, plus a modular discrete-event **scheduler** (FIFO, Critical-Path-First, Least-Slack-First, HEFT) and a conceptual reproduction of **KVFlow** prefix-cache policies.
+**Couloir**: joint compute + prefix-cache scheduling for multi-agent LLM DAGs under shared workers `K` and cache capacity `C`. Discrete-event sim is the source of truth; optional SGLang case study later. See [`docs/COULOIR.md`](docs/COULOIR.md).
 
-> Same workflow DAG, two control knobs: **compute priority** (who runs when) vs **cache lifetime** (which KV prefixes to keep / prefetch).
+> Two control knobs, one policy: **who runs when** and **which KV prefixes to keep / prefetch**.
 
 ## Motivation
 
-Multi-agent systems often run planner → parallel researchers → join → critic → writer. Latency is usually dominated by a small set of *critical* agents on the longest dependency path—not by every agent equally. This repository validates that empirically, implements priority-aware scheduling algorithms under resource contention, and explores cache-aware prefix policies.
+Multi-agent systems often run planner → parallel researchers → join → critic → writer. Latency is dominated by critical-path agents under worker contention; prefix-cache pressure adds a second axis. This repo profiles criticality, implements FIFO / CPF / LSF / HEFT / **Couloir**, and models KVFlow-style cache policies.
 
 ## Repository layout
 
 | Path               | Purpose                                                           |
 | ------------------ | ----------------------------------------------------------------- |
 | `simulated/`       | Sleep-based LangGraph agents, traces, critical-path analysis      |
-| `llm/`             | OpenRouter LLM agents, traces, plots                              |
+| `llm/`             | Live LLM agents / profiling (free-tier backends)                  |
 | `kvflow/`          | Pure-Python Agent Step Graph + LRU / STE / STE+prefetch cache sim |
-| `scheduler/`       | Discrete-event scheduler (FIFO, CPF, Slack, HEFT) + live Groq API |
+| `scheduler/`       | Discrete-event scheduler + Couloir joint utility                  |
+| `docs/COULOIR.md`  | Claim, glossary, utility formula                                  |
 | `docs/REPORT.md`   | Initial empirical profiling report                                |
 | `docs/SCHEDULING_REPORT.md` | Policy evaluation & benchmark report                     |
 | `requirements.txt` | Python dependencies                                               |
@@ -27,7 +28,7 @@ python -m venv .venv
 source .venv/Scripts/activate   # Windows Git Bash
 # source .venv/bin/activate     # Linux/macOS
 pip install -r requirements.txt
-cp env.example .env             # add OPENROUTER_API_KEY and/or GROQ_API_KEY
+cp env.example .env             # free-tier LLM keys only (see env.example)
 ```
 
 ### 1. Profiling (compute criticality)
@@ -37,9 +38,9 @@ cd simulated && python workflow.py && python analyze.py
 cd ../llm && python workflow_llm.py && python analyze_llm.py
 ```
 
-### 2. Scheduling Policies (FIFO, CPF, Slack, HEFT)
+### 2. Scheduling Policies (FIFO, CPF, Slack, HEFT, Couloir)
 
-The discrete-event simulator loads **agent-level mean runtimes** from `llm/profiling_summary_llm.csv` (and `simulated/profiling_summary.csv` for the sleep profile)—not per-run trace replay. See [`docs/SCHEDULING_REPORT.md`](docs/SCHEDULING_REPORT.md) §3.
+The discrete-event simulator loads **agent-level mean runtimes** from `llm/profiling_summary_llm.csv` (and `simulated/profiling_summary.csv` for the sleep profile)—not per-run trace replay. See [`docs/SCHEDULING_REPORT.md`](docs/SCHEDULING_REPORT.md) §3 and [`docs/COULOIR.md`](docs/COULOIR.md).
 
 ```bash
 # Run unit tests
@@ -48,7 +49,7 @@ python -m unittest discover -s scheduler/tests -v
 # Run simulation sweeps (worker slots, contention, batch scaling, noise)
 python -m scheduler.experiment --out scheduler/results
 
-# (Optional) Run live Groq LLM validation
+# (Optional) Live free-tier validation
 python -m scheduler.live_runner --runs 5 --workers 2
 ```
 
@@ -80,8 +81,11 @@ Critical path is the **runtime-weighted** longest path over this DAG. In profili
 
 - [x] Simulated + LLM critical-path profiling
 - [x] KVFlow STE + cache-policy conceptual sim
-- [x] Priority-aware ready-queue scheduling (FIFO vs Critical-Path-First vs Slack vs HEFT)
-- [ ] Joint compute + cache scheduling under contention
+- [x] Priority-aware ready-queue scheduling (FIFO / CPF / Slack / HEFT)
+- [x] Couloir joint utility (sim) + multi-DAG shapes (`writing` / `chain` / `fanout`)
+- [ ] Baseline matrix ablations + paper sweeps
+- [ ] Free-tier live validation refresh
+- [ ] Optional SGLang engine track (≤ US$50 GPU)
 
 ## References
 
