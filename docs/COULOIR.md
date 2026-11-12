@@ -4,7 +4,7 @@ Joint **compute + prefix-cache** scheduling for multi-agent LLM DAGs under share
 
 ## Claim
 
-Under contention (`K` smaller than ready parallelism and/or tight `C`), a single utility that trades off critical-path progress, slack, cache reuse, eviction cost, and aging beats optimizing **either** compute priority **or** cache lifetime alone.
+Under multi-tenant contention (batch arrivals, tight `C`), a single utility that jointly ranks ready tasks and keep/evict/prefetch decisions **improves prefix reuse / cuts recompute** versus compute-only or cache-only (and versus two-phase CPF→STE). Makespan gains are **narrow and workload-dependent** (sometimes ~tied with CPF); do not treat Couloir as a universal latency hammer.
 
 ## Glossary
 
@@ -15,9 +15,9 @@ Under contention (`K` smaller than ready parallelism and/or tight `C`), a single
 | **CPF** | Critical-Path-First: schedule highest remaining upward rank first. |
 | **STE** | Steps-to-execution (KVFlow): temporal proximity used for cache eviction. |
 | **Couloir** | Joint policy: one score drives ready-queue order **and** keep/evict/prefetch. |
+| **cache_key_mode** | `workflow_agent` (default): no cross-workflow prefix sharing. `agent_type`: optimistic shared types (sensitivity only). |
 | **Sim track** | Discrete-event simulator in `scheduler/` — source of truth for the claim. |
-| **Engine track** | Optional SGLang + local 8B case study in `engine/` (equal-citizen after gate). |
-| **Equal-citizen gate** | Sim ablations done **and** ≥30 workflow runs on DAG₁ + ≥20 on DAG₂ with matching directionality. |
+| **Engine track** | Optional SGLang + local 8B case study (equal-citizen after gate); deferred while sim breadth is thin. |
 | **Free-tier live** | Live LLM validation must use $0 API tiers; paid budget is GPU-only (≤ US$50). |
 
 ## Utility
@@ -28,41 +28,35 @@ For ready task \(i\) at time \(t\):
 U(i,t)=w_{\mathrm{cp}}\,\hat{r}_{\mathrm{cp}}(i)+w_{\mathrm{slack}}(1-\hat{r}_{\mathrm{slack}}(i))+w_{\mathrm{reuse}}\,\mathrm{reuse}(i)-w_{\mathrm{evict}}\,\mathrm{evict}(i)+w_{\mathrm{age}}\,\hat{a}(i,t)
 \]
 
-- \(r_{\mathrm{cp}}\): upward rank / remaining critical path (expected durations).
-- \(r_{\mathrm{slack}}\): deadline − (now + remaining CP); lower slack ⇒ higher urgency.
-- \(\mathrm{reuse}\): 1 if agent prefix already on GPU, else 0.
-- \(\mathrm{evict}\): capacity pressure to admit the agent’s prefix ∈ [0, 1].
-- \(a(i,t)\): wait since `ready_time`; hats denote min–max normalize over the current ready set.
+Default weights (batch-retuned): `cp=1`, `slack=0.25`, `reuse=1.5`, `evict=0.5`, `age=0.25` (`scheduler/couloir.py`).
 
-Default weights: `cp=1`, `slack=1`, `reuse=0.75`, `evict=0.5`, `age=1.25` (`scheduler/couloir.py`).
-
-Aging is required: without it, short non-critical tasks can starve under sustained critical arrivals.
+**Aging** is a starvation guard (unit-tested under adversarial ready sets). It is **not** a mean-makespan claim; batch ablations show near-zero or slightly worse latency when age is large.
 
 ## Cache actions
 
 When Couloir selects task \(i\):
 
-1. **Keep** \(i\) and up to `prefetch_top_k` other high-utility ready agents.
-2. **Evict** on-GPU agents not in the keep set (lowest utility / highest STE first).
-3. **Prefetch** keep-set agents other than \(i\) (conceptual; used by joint engine).
+1. **Keep** \(i\) and up to `prefetch_top_k` other high-utility ready prefixes.
+2. **Evict** on-GPU prefixes not in the keep set.
+3. **Prefetch** keep-set prefixes other than \(i\).
 
-Prefetch hits shorten task duration by \(P/\lambda_{\mathrm{prefill}}\) (`PREFILL_TOKENS_PER_SEC` in `scheduler/engine.py`) so cache policy can move makespan, not only hit-rate counters.
+Prefetch hits shorten duration by \(P/\lambda_{\mathrm{prefill}}\) (conceptual). Default prefix key is `workflow_id:agent_type`.
 
 ## Baselines
 
 - Compute-only: FIFO, CPF, LSF, Simplified HEFT.
-- Cache-only: LRU, STE, STE+prefetch (`kvflow/`).
-- Ablation: two-phase CPF then STE (sequential knobs) vs joint Couloir.
+- Cache-only: LRU, STE (`kvflow/` + engine modes).
+- Ablation: two-phase CPF then STE vs joint Couloir.
 
 ## Code
 
 | Module | Role |
 | --- | --- |
-| `scheduler/couloir.py` | Pure scoring + cache action planning |
-| `scheduler/policies.py` | Registers `couloir` policy |
-| `scheduler/engine.py` | Discrete-event workers; optional joint cache |
-| `kvflow/` | Conceptual prefix-cache simulator |
+| `scheduler/couloir.py` | Scoring + cache action planning |
+| `scheduler/engine.py` | Discrete-event workers; joint cache; key modes |
+| `scheduler/cache_scope_sensitivity.py` | type-keyed vs workflow-scoped |
+| `scheduler/batch_weight_grid.py` | Batch weight grid |
 
-## Paper path (not FYP)
+## Paper path
 
-Finish sim claim → draft → pitch professors for mentor/co-author → arXiv → workshop. Scholarships / FYP milestones are out of scope.
+Sim cache-joint claim → softcopy → arXiv / workshop. Pitch systems/LLM-serving mentors (not quantum). Scoped-cache recompute gap survived → optional GPU ≤US$50 equal-citizen track is unlocked.

@@ -56,6 +56,35 @@ class TestWeightsAndBatch(unittest.TestCase):
         solo = run_random_single_family(n_dags=2, num_workers=2, seed=1)
         self.assertEqual(len(solo), 2 * 4)
 
+    def test_workflow_scoped_cache_blocks_cross_wf_reuse(self) -> None:
+        from scheduler.batch_couloir import _make_batch
+
+        wfs = _make_batch("writing", 3, 0.0, 1)
+        typed = SimulationEngine(
+            num_workers=2,
+            policy_func=get_policy("couloir"),
+            policy_name="couloir",
+            cache_capacity=4096,
+            cache_prefix_tokens=512,
+            cache_mode="couloir",
+            joint_couloir=True,
+            cache_key_mode="agent_type",
+        ).run(wfs)
+        scoped = SimulationEngine(
+            num_workers=2,
+            policy_func=get_policy("couloir"),
+            policy_name="couloir",
+            cache_capacity=4096,
+            cache_prefix_tokens=512,
+            cache_mode="couloir",
+            joint_couloir=True,
+            cache_key_mode="workflow_agent",
+        ).run(wfs)
+        self.assertGreater(
+            typed.metrics.cache_hit_rate or 0.0,
+            scoped.metrics.cache_hit_rate or 0.0,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

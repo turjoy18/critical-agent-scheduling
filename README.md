@@ -58,15 +58,14 @@ python -m scheduler.experiment --out scheduler/results
 | `docs/PAPER_DRAFT.md` | Softcopy paper |
 | `docs/VENUES.md` | arXiv / workshop plan |
 
-## Headline sim results (fan-out, \(K=2\), \(C=2048\))
+## Headline sim results (batch \(M=20\), workflow-scoped prefixes)
 
-| Policy | Makespan | Hit rate |
-|--------|----------|----------|
-| FIFO (+LRU) | 72.0 | 0.00 |
-| CPF (+STE) | 68.0 | 0.12 |
-| **Couloir** | **66.5** | **0.62** |
+| Shape | Couloir recompute | CPF recompute | Couloir makespan | CPF makespan |
+|-------|-------------------|---------------|------------------|--------------|
+| fanout | **2048** | 75776 | **587** | 604 |
+| random | **1536** | 76800 | **698** | 717 |
 
-Writing/chain: makespan often ties CPF; Couloir still cuts recompute tokens. Details in the draft.
+Primary claim = **cache-joint under multi-arrival**, not single-WF makespan. See `docs/PAPER_DRAFT.md`.
 
 ## Status
 

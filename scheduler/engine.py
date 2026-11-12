@@ -13,7 +13,10 @@ from scheduler.couloir import (
     CacheView,
     CouloirDecision,
     CouloirWeights,
+    PrefixKeyFn,
+    agent_type_key,
     decide,
+    workflow_agent_key,
 )
 from scheduler.dag import Task, WorkflowDAG
 from scheduler.metrics import MetricsCollector, SchedulingMetrics
@@ -202,6 +205,7 @@ class SimulationEngine:
         cache_mode: str | None = None,
         enable_aging: bool = True,
         weights: CouloirWeights | None = None,
+        cache_key_mode: str = "workflow_agent",
     ) -> None:
         self.num_workers = num_workers
         self.policy_func = policy_func
@@ -210,6 +214,13 @@ class SimulationEngine:
         self.cache_prefix_tokens = cache_prefix_tokens
         self.enable_aging = enable_aging
         self.weights = weights
+        mode = (cache_key_mode or "workflow_agent").strip().lower()
+        if mode not in ("agent_type", "workflow_agent"):
+            raise ValueError("cache_key_mode must be agent_type|workflow_agent")
+        self.cache_key_mode = mode
+        self._key_fn: PrefixKeyFn = (
+            agent_type_key if mode == "agent_type" else workflow_agent_key
+        )
         name = policy_name.strip().lower()
         self.joint_couloir = joint_couloir or name == "couloir"
         # cache_mode: none | lru | ste | couloir (default: couloir if joint, else none)
@@ -260,15 +271,15 @@ class SimulationEngine:
         event_log: list[dict[str, Any]] = []
         current_time = sim_start_time
 
-        agents = sorted({t.agent_type for t in task_map.values()})
+        prefix_keys = sorted({self._key_fn(t) for t in task_map.values()})
         cache_state: JointCacheState | None = None
-        last_access: dict[str, float] = {a: -1.0 for a in agents}
+        last_access: dict[str, float] = {a: -1.0 for a in prefix_keys}
         use_cache = self.cache_capacity is not None and self.cache_mode != "none"
         if use_cache:
             cache_state = JointCacheState(
                 capacity_tokens=self.cache_capacity or 1,
                 prefix_tokens=self.cache_prefix_tokens,
-                agents=agents,
+                agents=prefix_keys,
             )
 
         def dispatch_ready_tasks() -> None:
@@ -284,6 +295,7 @@ class SimulationEngine:
                     cache=cache_state.view() if cache_state else None,
                     weights=self.weights,
                     enable_aging=self.enable_aging,
+                    key_fn=self._key_fn,
                 )
                 ordered_tasks = decision.ordered_tasks
             else:
@@ -303,6 +315,7 @@ class SimulationEngine:
                 if cache_state is not None:
                     remaining = [next_task, *ready_queue]
                     view = cache_state.view()
+                    pkey = self._key_fn(next_task)
                     if self.cache_mode == "couloir" or self.joint_couloir:
                         step = decide(
                             remaining,
@@ -311,6 +324,7 @@ class SimulationEngine:
                             cache=view,
                             weights=self.weights,
                             enable_aging=self.enable_aging,
+                            key_fn=self._key_fn,
                         )
                         action = step.cache_action
                         cache_meta["utilities"] = {
@@ -318,23 +332,32 @@ class SimulationEngine:
                         }
                     elif self.cache_mode == "ste":
                         action = plan_ste_cache_actions(
-                            next_task, remaining, workflows_map, view
+                            next_task,
+                            remaining,
+                            workflows_map,
+                            view,
+                            key_fn=self._key_fn,
                         )
                     elif self.cache_mode == "lru":
                         action = plan_lru_cache_actions(
-                            next_task, remaining, view, last_access, current_time
+                            next_task,
+                            remaining,
+                            view,
+                            last_access,
+                            current_time,
+                            key_fn=self._key_fn,
                         )
                     else:
-                        action = CacheAction(keep_agents=[next_task.agent_type])
-                    cache_meta.update(
-                        cache_state.apply_action(action, next_task.agent_type)
-                    )
+                        action = CacheAction(keep_agents=[pkey])
+                    cache_meta.update(cache_state.apply_action(action, pkey))
                     hit = bool(cache_meta.get("cache_hit"))
                     run_s = cache_state.effective_duration(next_task.actual_duration, hit)
                     cache_meta["selected_task_id"] = next_task.task_id
                     cache_meta["cache_mode"] = self.cache_mode
+                    cache_meta["cache_key_mode"] = self.cache_key_mode
+                    cache_meta["prefix_key"] = pkey
                     cache_meta["effective_duration"] = round(run_s, 4)
-                    last_access[next_task.agent_type] = current_time
+                    last_access[pkey] = current_time
 
                 finish_t = worker_pool.assign_task(
                     idle_worker, next_task, current_time, duration=run_s

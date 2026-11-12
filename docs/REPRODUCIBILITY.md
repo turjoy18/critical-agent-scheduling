@@ -7,20 +7,22 @@ python -m unittest discover -s scheduler/tests -v
 python -m scheduler.couloir_sweep --all-dags --with-ablations
 python -m scheduler.weight_ablation
 python -m scheduler.batch_couloir
+python -m scheduler.cache_scope_sensitivity
+python -m scheduler.batch_weight_grid
 python -m scheduler.plot_couloir
 ```
+
+Default engine cache keying: **`workflow_agent`** (no cross-WF type sharing).
 
 Outputs under `scheduler/results/couloir_sweeps/`:
 
 | File | Contents |
 |------|----------|
 | `couloir_baseline_matrix.csv` | \(K\times C\) × policies × DAGs |
-| `aging_ablation.csv` | Couloir aging on/off |
-| `noise_sweep.csv` | Duration noise trials |
-| `weight_leave_one_out.csv` / `weight_sensitivity.csv` | Single-WF weight ablations |
-| `weight_batch_leave_one_out.csv` | Batch \(M=10\) leave-one-out |
-| `batch_multi_arrival.csv` / `random_solo_*.csv` | Multi-arrival + random DAGs |
-| `manifest.json` | git SHA, timestamp, config snapshot |
+| `cache_scope_sensitivity.csv` | type-keyed vs workflow-scoped batch |
+| `batch_weight_grid.csv` | Batch weight grid |
+| `weight_*` / `batch_*` / `random_solo_*` | Ablations |
+| `*_manifest.json` | git SHA + config snapshot |
 | `figures/` | PNG/PDF + CSV tables |
 
 Legacy contention/noise plots: `python -m scheduler.experiment --out scheduler/results`.
