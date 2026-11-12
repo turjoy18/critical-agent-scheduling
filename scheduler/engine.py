@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, Callable, Sequence
 
+from scheduler.couloir import CacheView, CouloirDecision, decide
 from scheduler.dag import Task, WorkflowDAG
 from scheduler.metrics import MetricsCollector, SchedulingMetrics
 
@@ -70,10 +71,83 @@ class SimulationResult:
     workflows: list[WorkflowDAG]
     metrics: SchedulingMetrics
     event_log: list[dict[str, Any]] = field(default_factory=list)
+    cache_capacity: int | None = None
 
 
 # Policy sort function signature: (ready_queue: list[Task], current_time: float, workflows_map: dict[str, WorkflowDAG]) -> list[Task]
 PolicyFunction = Callable[[list[Task], float, dict[str, WorkflowDAG]], list[Task]]
+
+
+class JointCacheState:
+    """Lightweight token-budget cache tied to agent types for Couloir joint mode."""
+
+    def __init__(
+        self,
+        capacity_tokens: int,
+        prefix_tokens: int = 20,
+        agents: Sequence[str] | None = None,
+    ) -> None:
+        if capacity_tokens < 1:
+            raise ValueError("capacity_tokens must be >= 1")
+        self.capacity_tokens = capacity_tokens
+        self.prefix_tokens = prefix_tokens
+        self.agent_on_gpu: dict[str, bool] = {a: False for a in (agents or [])}
+        self.hits = 0
+        self.misses = 0
+        self.recompute_tokens = 0
+        self.evictions = 0
+
+    def view(self) -> CacheView:
+        gpu = sum(
+            self.prefix_tokens for a, on in self.agent_on_gpu.items() if on
+        )
+        return CacheView(
+            capacity_tokens=self.capacity_tokens,
+            gpu_tokens=gpu,
+            agent_on_gpu=dict(self.agent_on_gpu),
+            agent_prefix_tokens={
+                a: self.prefix_tokens for a in self.agent_on_gpu
+            },
+        )
+
+    def apply_decision(self, decision: CouloirDecision, selected_agent: str) -> dict[str, Any]:
+        for a in decision.cache_action.evict_agents:
+            if self.agent_on_gpu.get(a):
+                self.agent_on_gpu[a] = False
+                self.evictions += 1
+        hit = bool(self.agent_on_gpu.get(selected_agent))
+        if hit:
+            self.hits += 1
+        else:
+            self.misses += 1
+            self.recompute_tokens += self.prefix_tokens
+            # Free space if needed, then admit.
+            while (
+                sum(self.prefix_tokens for a, on in self.agent_on_gpu.items() if on)
+                + self.prefix_tokens
+                > self.capacity_tokens
+            ):
+                victims = [a for a, on in self.agent_on_gpu.items() if on and a != selected_agent]
+                if not victims:
+                    break
+                victim = victims[0]
+                self.agent_on_gpu[victim] = False
+                self.evictions += 1
+            self.agent_on_gpu[selected_agent] = True
+        for a in decision.cache_action.prefetch_agents:
+            if a == selected_agent:
+                continue
+            free = self.capacity_tokens - sum(
+                self.prefix_tokens for x, on in self.agent_on_gpu.items() if on
+            )
+            if free >= self.prefix_tokens:
+                self.agent_on_gpu[a] = True
+        return {
+            "cache_hit": hit,
+            "keep": list(decision.cache_action.keep_agents),
+            "evict": list(decision.cache_action.evict_agents),
+            "prefetch": list(decision.cache_action.prefetch_agents),
+        }
 
 
 class SimulationEngine:
@@ -84,10 +158,16 @@ class SimulationEngine:
         num_workers: int,
         policy_func: PolicyFunction,
         policy_name: str = "custom",
+        cache_capacity: int | None = None,
+        cache_prefix_tokens: int = 20,
+        joint_couloir: bool = False,
     ) -> None:
         self.num_workers = num_workers
         self.policy_func = policy_func
         self.policy_name = policy_name
+        self.cache_capacity = cache_capacity
+        self.cache_prefix_tokens = cache_prefix_tokens
+        self.joint_couloir = joint_couloir or policy_name.strip().lower() == "couloir"
 
     def run(
         self,
@@ -127,13 +207,33 @@ class SimulationEngine:
         event_log: list[dict[str, Any]] = []
         current_time = sim_start_time
 
+        agents = sorted({t.agent_type for t in task_map.values()})
+        cache_state: JointCacheState | None = None
+        if self.cache_capacity is not None:
+            cache_state = JointCacheState(
+                capacity_tokens=self.cache_capacity,
+                prefix_tokens=self.cache_prefix_tokens,
+                agents=agents,
+            )
+
         def dispatch_ready_tasks() -> None:
             nonlocal event_counter
             if not ready_queue or not worker_pool.idle_workers:
                 return
 
-            # Apply policy ordering to ready queue
-            ordered_tasks = self.policy_func(list(ready_queue), current_time, workflows_map)
+            decision: CouloirDecision | None = None
+            if self.joint_couloir:
+                decision = decide(
+                    list(ready_queue),
+                    current_time,
+                    workflows_map,
+                    cache=cache_state.view() if cache_state else None,
+                )
+                ordered_tasks = decision.ordered_tasks
+            else:
+                ordered_tasks = self.policy_func(
+                    list(ready_queue), current_time, workflows_map
+                )
             ready_queue.clear()
             ready_queue.extend(ordered_tasks)
 
@@ -141,6 +241,21 @@ class SimulationEngine:
                 next_task = ready_queue.pop(0)
                 idle_worker = worker_pool.idle_workers[0]
                 finish_t = worker_pool.assign_task(idle_worker, next_task, current_time)
+
+                cache_meta: dict[str, Any] = {}
+                if cache_state is not None and decision is not None:
+                    # Re-decide for the actual head if queue mutated mid-dispatch.
+                    step = decide(
+                        [next_task, *ready_queue],
+                        current_time,
+                        workflows_map,
+                        cache=cache_state.view(),
+                    )
+                    cache_meta = cache_state.apply_decision(step, next_task.agent_type)
+                    cache_meta["selected_task_id"] = next_task.task_id
+                    cache_meta["utilities"] = {
+                        s.task_id: round(s.utility, 4) for s in step.scores
+                    }
 
                 event_log.append(
                     {
@@ -151,6 +266,7 @@ class SimulationEngine:
                         "worker_id": idle_worker.worker_id,
                         "finish_time": finish_t,
                         "waiting_time": next_task.waiting_time,
+                        **({"cache": cache_meta} if cache_meta else {}),
                     }
                 )
 
@@ -221,11 +337,26 @@ class SimulationEngine:
 
                 dispatch_ready_tasks()
 
+        cache_stats = None
+        if cache_state is not None:
+            cache_stats = {
+                "hits": cache_state.hits,
+                "misses": cache_state.misses,
+                "recompute_tokens": cache_state.recompute_tokens,
+                "evictions": cache_state.evictions,
+                "hit_rate": (
+                    cache_state.hits / (cache_state.hits + cache_state.misses)
+                    if (cache_state.hits + cache_state.misses)
+                    else 0.0
+                ),
+            }
+
         metrics = MetricsCollector.calculate(
             policy_name=self.policy_name,
             num_workers=self.num_workers,
             workflows=workflows,
             sim_start_time=sim_start_time,
+            cache_stats=cache_stats,
         )
 
         return SimulationResult(
@@ -234,4 +365,5 @@ class SimulationEngine:
             workflows=list(workflows),
             metrics=metrics,
             event_log=event_log,
+            cache_capacity=self.cache_capacity,
         )
