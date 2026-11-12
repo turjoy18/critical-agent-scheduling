@@ -1,0 +1,7 @@
+{
+  "git_sha": "fc2d12f043da93273a29b978128bd9a63f3add60",
+  "timestamp_iso": "2026-11-12T12:44:48Z",
+  "csv": "scheduler\\results\\couloir_sweeps\\cache_scope_sensitivity.csv",
+  "summary": "scheduler\\results\\couloir_sweeps\\cache_scope_summary.csv",
+  "default_engine_mode": "workflow_agent"
+}

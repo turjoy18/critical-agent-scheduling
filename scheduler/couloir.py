@@ -16,17 +16,31 @@ tasks eventually dominate compute-only terms.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, Sequence
+from typing import Callable, Iterable, Sequence
 
 from scheduler.dag import Task, WorkflowDAG
 
+# Retuned from batch leave-one-out: reuse load-bearing; slack/age weak or harmful
+# on mean metrics (starvation still unit-tested with age>0).
 DEFAULT_WEIGHTS = {
     "cp": 1.0,
-    "slack": 1.0,
-    "reuse": 0.75,
+    "slack": 0.25,
+    "reuse": 1.5,
     "evict": 0.5,
-    "age": 1.25,
+    "age": 0.25,
 }
+
+PrefixKeyFn = Callable[[Task], str]
+
+
+def agent_type_key(task: Task) -> str:
+    """Cross-workflow reuse if agent_type strings collide (legacy / optimistic)."""
+    return task.agent_type
+
+
+def workflow_agent_key(task: Task) -> str:
+    """No cross-workflow prefix sharing (closer to distinct prompts)."""
+    return f"{task.workflow_id}:{task.agent_type}"
 
 
 @dataclass(frozen=True)
@@ -156,12 +170,14 @@ def score_ready_tasks(
     cache: CacheView | None = None,
     weights: CouloirWeights | None = None,
     enable_aging: bool = True,
+    key_fn: PrefixKeyFn | None = None,
 ) -> list[CouloirScoreBreakdown]:
     """Score every ready task. Deterministic for fixed inputs."""
     if not ready_tasks:
         return []
     w = weights or CouloirWeights()
     cache = cache or CacheView(capacity_tokens=1, gpu_tokens=0)
+    key = key_fn or agent_type_key
     ranks: dict[str, dict[str, float]] = {}
     deadlines: dict[str, float] = {}
 
@@ -170,8 +186,8 @@ def score_ready_tasks(
         task_slack(t, current_time, workflows, ranks, deadlines) for t in ready_tasks
     ]
     raw_age = [wait_age_seconds(t, current_time) for t in ready_tasks]
-    raw_reuse = [cache.reuse_benefit(t.agent_type) for t in ready_tasks]
-    raw_evict = [cache.eviction_cost(t.agent_type) for t in ready_tasks]
+    raw_reuse = [cache.reuse_benefit(key(t)) for t in ready_tasks]
+    raw_evict = [cache.eviction_cost(key(t)) for t in ready_tasks]
 
     n_cp = _minmax(raw_cp)
     # Lower slack → higher urgency; normalize then invert in the utility mix.
@@ -223,22 +239,31 @@ def plan_cache_actions(
     scores: Sequence[CouloirScoreBreakdown],
     cache: CacheView,
     prefetch_top_k: int = 1,
+    key_fn: PrefixKeyFn | None = None,
 ) -> CacheAction:
     """Keep selected + high-utility ready agents; evict lowest-utility residents."""
-    score_by_agent = {s.agent_type: s for s in scores}
+    key = key_fn or agent_type_key
+    by_id = {t.task_id: t for t in ready_tasks}
+    if selected is not None:
+        by_id[selected.task_id] = selected
+    score_by_key: dict[str, CouloirScoreBreakdown] = {}
+    for s in scores:
+        t = by_id.get(s.task_id)
+        if t is not None:
+            score_by_key[key(t)] = s
     keep: list[str] = []
     if selected is not None:
-        keep.append(selected.agent_type)
-    ranked_agents = sorted(
-        {t.agent_type for t in ready_tasks},
-        key=lambda a: (
-            -(score_by_agent[a].utility if a in score_by_agent else 0.0),
-            a,
+        keep.append(key(selected))
+    ranked_keys = sorted(
+        {key(t) for t in ready_tasks},
+        key=lambda k: (
+            -(score_by_key[k].utility if k in score_by_key else 0.0),
+            k,
         ),
     )
-    for a in ranked_agents:
-        if a not in keep:
-            keep.append(a)
+    for k in ranked_keys:
+        if k not in keep:
+            keep.append(k)
         if len(keep) >= max(1, prefetch_top_k + 1):
             break
 
@@ -246,12 +271,13 @@ def plan_cache_actions(
     evict = sorted(
         [a for a in on_gpu if a not in keep],
         key=lambda a: (
-            score_by_agent[a].utility if a in score_by_agent else -1.0,
+            score_by_key[a].utility if a in score_by_key else -1.0,
             -cache.agent_ste.get(a, 0.0),
             a,
         ),
     )
-    prefetch = [a for a in keep if a != (selected.agent_type if selected else None)]
+    sel_key = key(selected) if selected is not None else None
+    prefetch = [a for a in keep if a != sel_key]
     return CacheAction(keep_agents=keep, evict_agents=evict, prefetch_agents=prefetch)
 
 
@@ -263,15 +289,28 @@ def decide(
     weights: CouloirWeights | None = None,
     enable_aging: bool = True,
     prefetch_top_k: int = 1,
+    key_fn: PrefixKeyFn | None = None,
 ) -> CouloirDecision:
+    key = key_fn or agent_type_key
     cache = cache or CacheView(capacity_tokens=1, gpu_tokens=0)
     scores = score_ready_tasks(
-        ready_tasks, current_time, workflows, cache, weights, enable_aging
+        ready_tasks,
+        current_time,
+        workflows,
+        cache,
+        weights,
+        enable_aging,
+        key_fn=key,
     )
     ordered = order_by_utility(ready_tasks, scores)
     selected = ordered[0] if ordered else None
     action = plan_cache_actions(
-        selected, ready_tasks, scores, cache, prefetch_top_k=prefetch_top_k
+        selected,
+        ready_tasks,
+        scores,
+        cache,
+        prefetch_top_k=prefetch_top_k,
+        key_fn=key,
     )
     return CouloirDecision(
         ordered_tasks=ordered,

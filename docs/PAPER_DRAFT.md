@@ -6,7 +6,7 @@
 
 ## Abstract
 
-Multi-agent LLM workflows expose two scarce resources under shared serving: worker slots \(K\) and prefix-cache capacity \(C\). Prior systems optimize ready-queue priority or cache residency in isolation. We present **Couloir**, a single utility that ranks ready agents by remaining critical path, slack, reuse benefit, eviction cost, and aging, and uses the same ranking for keep / evict / prefetch. In a discrete-event simulator across writing, chain, and fan-out DAGs, Couloir matches or beats compute-only and two-phase CPF→STE baselines: on fan-out at \(K=2\), makespan drops from 72 s (FIFO) and 68 s (CPF) to **66.5 s**, with cache hit rate **0.62** vs **0.12** for STE. On writing/chain, makespan ties CPF while hit rate and recompute tokens improve. Live free-tier Gemini runs validate integration only. An optional SGLang engine track remains future work under a ≤US$50 GPU budget.
+Multi-agent LLM workflows expose two scarce resources under shared serving: worker slots \(K\) and prefix-cache capacity \(C\). Prior systems optimize ready-queue priority or cache residency in isolation. We present **Couloir**, a single utility that jointly ranks ready tasks and keep/evict/prefetch decisions. In a discrete-event simulator, the durable result is a **cache-joint** win under multi-arrival batch workloads: Couloir cuts recompute versus CPF+STE / FIFO+LRU when prefixes are keyed per `workflow:agent` (no cross-workflow type sharing). Batch makespan is typically **tied with CPF within noise**; a ~2% single-workflow fan-out makespan edge does not generalize. Aging is a starvation guard, not a latency claim. Live Gemini runs are smoke only. An optional SGLang engine track stays deferred while sim breadth is developed.
 
 ---
 
@@ -14,14 +14,14 @@ Multi-agent LLM workflows expose two scarce resources under shared serving: work
 
 Agent frameworks (AutoGen, LangGraph) compose planner → parallel researchers → join → critic → writer DAGs. End-to-end latency is dominated by (i) **who runs when** under limited decode/API slots and (ii) **which KV prefixes stay resident** when GPU memory is tight. HEFT-style critical-path scheduling addresses (i); KVFlow STE/prefetch and related cache policies address (ii). Production stacks (vLLM, SGLang) expose reuse APIs but leave joint DAG-aware control to the application.
 
-**Claim.** Under shared \(K\) and \(C\), one utility over critical-path progress, slack, reuse, eviction pressure, and aging reduces makespan and recompute versus optimizing either knob alone—and versus sequencing CPF then STE.
+**Claim.** Under shared \(K\) and \(C\), one utility over critical-path progress, slack, reuse, eviction pressure, and aging **improves prefix reuse / reduces recompute** versus compute-only, cache-only, or two-phase CPF→STE—especially under multi-arrival batches. Makespan reductions are secondary and not robust across workloads.
 
 **Contributions.**
 
 1. Couloir joint utility and cache action planner (`scheduler/couloir.py`).
-2. Discrete-event evaluation with multi-DAG matrix, aging ablation, and noise sweeps.
-3. Free-tier live smoke path (Gemini) documenting cost policy: free chat APIs; paid budget GPU-only.
-4. Softcopy draft + reproducibility harness toward arXiv / workshop.
+2. Discrete-event eval: multi-DAG matrix, batch/random, weight grid, **workflow-scoped vs type-keyed** cache sensitivity.
+3. Free-tier live smoke (Gemini); cost policy: free chat APIs; GPU ≤US$50 only.
+4. Softcopy + regenerable artifacts toward arXiv / workshop.
 
 ---
 
@@ -39,9 +39,11 @@ Agent frameworks (AutoGen, LangGraph) compose planner → parallel researchers �
 
 ## 3. Model
 
-A workflow is a DAG of agent tasks with expected durations from LLM profiling means (writing) or synthetic means (chain, fan-out). \(K\) homogeneous workers. Prefix-cache capacity \(C\) holds agent-keyed prefixes of size \(P\). Profiled duration assumes cold prefill; a hit subtracts \(P/\lambda_{\mathrm{prefill}}\) with \(\lambda_{\mathrm{prefill}}=1024\) tok/s. Metrics: makespan, JCT p50/p99, hit rate, recompute tokens.
+A workflow is a DAG of agent tasks with expected durations from LLM profiling means (writing) or synthetic means (chain, fan-out, random layered). \(K\) homogeneous workers. Prefix-cache capacity \(C\) holds prefixes of size \(P\). Profiled duration assumes cold prefill; a hit subtracts \(P/\lambda_{\mathrm{prefill}}\) (\(\lambda=1024\) tok/s). Metrics: makespan, JCT p50/p99, hit rate, recompute tokens.
 
-**DAGs:** writing (7 agents, 3-way research parallel); chain (linear); fan-out (wide parallel then join).
+**Prefix keying (important).** Default `cache_key_mode=workflow_agent` keys residency by `workflow_id:agent_type`, so workflows do **not** share prefixes merely by sharing an agent-type string. The legacy `agent_type` mode enables cross-workflow reuse and **inflates** batch hit rates; it is retained only as a sensitivity. Do not quote type-keyed hit rates as KV hits to a reviewer.
+
+**DAGs:** writing; chain; fan-out; random layered (breadth under batch, not solo).
 
 ---
 
@@ -53,7 +55,7 @@ For ready task \(i\) at time \(t\):
 U(i,t)=w_{\mathrm{cp}}\,\hat{r}_{\mathrm{cp}}(i)+w_{\mathrm{slack}}(1-\hat{r}_{\mathrm{slack}}(i))+w_{\mathrm{reuse}}\,\mathrm{reuse}(i)-w_{\mathrm{evict}}\,\mathrm{evict}(i)+w_{\mathrm{age}}\,\hat{a}(i,t)
 \]
 
-Defaults \(w=(1,1,0.75,0.5,1.25)\). Hats = min–max over the ready set. Top score is dispatched; the same ranking drives keep / evict / prefetch. Aging prevents starvation of short non-critical tasks under sustained critical arrivals.
+Defaults (batch-retuned) \(w=(1,0.25,1.5,0.5,0.25)\). Hats = min–max over the ready set. Same ranking drives keep / evict / prefetch. **Aging** = starvation guard (unit-tested); not a mean-makespan claim.
 
 **Baselines:** FIFO, CPF, HEFT; FIFO+LRU; CPF+STE; two-phase CPF→STE; Couloir.
 
@@ -118,35 +120,49 @@ Batch \(M\in\{1,5,10,20\}\), \(K=4\), \(C=2048\), stagger 2 s (`batch_multi_ar
 | random | 20 | 727.6 | **706.2** | 709.1 | **0.99** | 0.62 |
 | writing | 20 | 746.9 | 735.1 | **734.5** | **0.99** | 0.98 |
 
-**Takeaway:** cache-efficiency wins **generalize** (especially random batch: recompute 1024 vs CPF 31232). Makespan wins stay **small or absent**; CPF sometimes edges Couloir on random batch makespan while losing badly on recompute.
+**Takeaway (type-keyed, pre-fix):** relative recompute gaps look huge but are inflated by cross-WF type sharing. Makespan batch “wins” at M=20 are **noise** (≤1 s); CPF often ahead on random/fanout M=5–10. Solo random DAGs are a **null** test (Couloir≡CPF).
 
-### 5.5 Aging ablation
+### 5.5 Cache keying sensitivity (primary batch claim)
 
-Single-WF and batch: aging on/off ≈ same mean makespan (`aging_ablation.csv`, batch columns). Kept for starvation-freedom, not as a headline latency claim.
+`cache_scope_sensitivity.csv` — \(M=20\), \(K=4\), \(C=2048\):
 
-### 5.6 Noise sweep
+| Shape | Mode | Couloir makespan | CPF makespan | Couloir hit | CPF hit | Couloir recompute | CPF recompute |
+|-------|------|------------------|--------------|-------------|---------|-------------------|---------------|
+| fanout | workflow_agent | **587** | 604 | 0.98 | 0.08 | **2048** | 75776 |
+| random | workflow_agent | **698** | 717 | 0.98 | 0.06 | **1536** | 76800 |
+| writing | workflow_agent | **736** | 751 | 0.96 | 0.10 | **2560** | 64512 |
 
-Duration noise \(\sigma\in\{0,0.1,0.25,0.5\}\) (5 trials). Fan-out ranking Couloir ≤ CPF ≤ FIFO stable in mean; writing near-tied (`noise_sweep.csv`).
+**Scoped recompute gap survives** (and makespan gap appears once CPF cannot freeload cross-WF type hits). Type-keyed mode remains an optimistic upper bound only.
 
-### 5.7 Live free-tier (supporting)
+### 5.6 Batch weight grid
 
-Gemini `gemini-flash-lite-latest`, \(K=2\). API-latency dominated; **not** a paper claim.
+`batch_weight_grid.csv` (324 rows). Defaults retuned to \(w=(1,0.25,1.5,0.5,0.25)\). Shape-specific optima vary; reuse stays necessary.
 
-### 5.8 Limitations / GPU status
+### 5.7 Aging ablation
 
-Homogeneous workers; conceptual prefill \(P/\lambda\); synthetic chain/fan-out/random durations (writing profiled). **SGLang equal-citizen gate deferred:** sim claim is workshop-credible on the *cache* axis; makespan breadth is still too thin to justify burning the ≤US$50 GPU budget yet. Next sim steps before GPU: harder contention (tighter \(C\), higher \(M/K\)), weight grid under batch only.
+Near-zero mean-makespan effect; drop-age can even improve batch fan-out hit/recompute. Kept for starvation-freedom only.
+
+### 5.8 Noise + live
+
+Noise sweep: fan-out ranking stable in mean. Live Gemini: smoke only.
+
+### 5.9 Limitations / GPU status
+
+Conceptual prefill; synthetic non-writing DAGs. **Scoped cache gap survived → GPU stage is unlocked** for optional equal-citizen evidence (≤US$50, [`GPU_CLOUD.md`](GPU_CLOUD.md)). Still not required for arXiv/workshop softcopy.
 
 ---
 
 ## 6. Discussion
 
-Couloir’s durable contribution is **joint reuse under multi-tenant arrivals**, not a universal makespan hammer. Single-WF fan-out (~2% over CPF) does not generalize; batch hit-rate/recompute does. Weight defaults are provisional—reuse is necessary under batch; other terms need a regime where dispatch order is contested.
+Lead with **joint reuse under multi-arrival with workflow-scoped keys**. Do not lead with makespan. Type-keyed batch hits are an upper-bound sensitivity, not a KV claim.
 
 ---
 
 ## 7. Conclusion
 
-Couloir unifies compute priority and prefix-cache control. Discrete-event evidence supports a **cache-joint** claim under batch/random multi-arrival, with a narrow single-WF fan-out makespan signal. Softcopy + regenerable artifacts target arXiv cs.DC and an MLSys/serving workshop ([`VENUES.md`](VENUES.md)); real-engine validation remains optional pending stronger sim breadth.
+Couloir unifies compute priority and prefix-cache control. With workflow-scoped prefixes, batch multi-arrival shows large recompute cuts (and modest makespan edges) vs CPF+STE. Softcopy targets arXiv cs.DC + serving workshop; optional SGLang validation is now justified, not mandatory ([`VENUES.md`](VENUES.md)).
+
+---
 
 ---
 
@@ -161,4 +177,4 @@ Couloir unifies compute priority and prefix-cache control. Discrete-event eviden
 
 ## Appendix A — Pitch (deferred)
 
-> We have a working discrete-event sim + baseline matrix where Couloir jointly beats CPF→STE on cache reuse and improves fanout makespan; looking for a mentor/co-author to sharpen the claim vs KVFlow/TOPAS and target a workshop after arXiv.
+> We have a Couloir sim where joint dispatch+prefetch beats CPF→STE on **recompute under batch multi-arrival** (workflow-scoped prefixes); makespan is ~tied. Looking for a systems/LLM-serving mentor to harden the claim vs KVFlow/TOPAS toward arXiv + workshop.
