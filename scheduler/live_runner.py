@@ -1,28 +1,25 @@
-"""Live LLM workflow runner with policy-based dispatch using Groq API."""
+"""Live LLM workflow runner with policy-based dispatch (free-tier backends)."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from threading import Lock
-from typing import Any, Callable
+from typing import Any
 
-import openai
 import pandas as pd
 from dotenv import load_dotenv
-from openai import OpenAI
 
 from scheduler.dag import create_research_writing_workflow
-from scheduler.policies import POLICIES, get_policy
+from scheduler.llm_backend import LLMBackend, get_backend
+from scheduler.policies import get_policy
 
 load_dotenv()
 
-DEFAULT_MODEL = "openai/gpt-oss-20b"
 DEFAULT_OUT_DIR = Path("scheduler/results")
 
 TASKS = [
@@ -33,64 +30,21 @@ TASKS = [
 ]
 
 
-def get_groq_client() -> OpenAI:
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise RuntimeError("GROQ_API_KEY not found in environment or .env file.")
-    return OpenAI(
-        api_key=api_key,
-        base_url="https://api.groq.com/openai/v1",
-    )
-
-
-def call_llm(
-    client: OpenAI,
-    model: str,
-    system_prompt: str,
-    user_prompt: str,
-    max_retries: int = 5,
-) -> tuple[str, dict[str, int]]:
-    """Invoke Groq LLM with retry/backoff on rate limits."""
-    for attempt in range(max_retries):
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.2,
-            )
-            content = resp.choices[0].message.content or ""
-            usage = {
-                "input_tokens": resp.usage.prompt_tokens if resp.usage else 0,
-                "output_tokens": resp.usage.completion_tokens if resp.usage else 0,
-            }
-            return content, usage
-        except openai.RateLimitError as e:
-            if attempt < max_retries - 1:
-                wait_s = 3.0 * (attempt + 1)
-                print(f"Rate limit hit, backing off for {wait_s:.1f}s...")
-                time.sleep(wait_s)
-            else:
-                raise e
-
-
 class LiveWorkflowExecutor:
-    """Executes live multi-agent DAGs on Groq under worker slot contention and policy dispatch."""
+    """Executes live multi-agent DAGs under worker slot contention and policy dispatch."""
 
     def __init__(
         self,
         num_workers: int = 2,
         policy_name: str = "cpf",
-        model: str = DEFAULT_MODEL,
-        client: OpenAI | None = None,
+        backend: LLMBackend | None = None,
+        backend_name: str | None = None,
     ) -> None:
         self.num_workers = num_workers
         self.policy_name = policy_name
         self.policy_func = get_policy(policy_name)
-        self.model = model
-        self.client = client or get_groq_client()
+        self.backend = backend or get_backend(backend_name)
+        self.model = self.backend.model
 
     def run_workflow(self, task_prompt: str, workflow_id: str | None = None) -> dict[str, Any]:
         wf_id = workflow_id or f"live_{uuid.uuid4().hex[:8]}"
@@ -115,74 +69,52 @@ class LiveWorkflowExecutor:
             t_start = time.perf_counter()
             task_obj.start_time = t_start - t0
 
-            if agent_type == "planner":
-                content, usage = call_llm(
-                    self.client,
-                    self.model,
+            prompts = {
+                "planner": (
                     "You are a planning agent. Produce a concise research plan with 3 bullet points.",
                     state["task"],
-                )
-                state["plan"] = content
-
-            elif agent_type == "researcher_a":
-                content, usage = call_llm(
-                    self.client,
-                    self.model,
+                ),
+                "researcher_a": (
                     "You are Researcher A. Focus on definitions and background. Keep answer under 100 words.",
                     f"Task: {state['task']}\nPlan:\n{state['plan']}",
-                )
-                state["research"]["researcher_a"] = content
-
-            elif agent_type == "researcher_b":
-                # Asymmetric heavy workload
-                content, usage = call_llm(
-                    self.client,
-                    self.model,
+                ),
+                "researcher_b": (
                     "You are Researcher B. Provide a comprehensive technical deep-dive with architectural tradeoffs, equations or system details. Keep answer under 250 words.",
                     f"Task: {state['task']}\nPlan:\n{state['plan']}",
-                )
-                state["research"]["researcher_b"] = content
-
-            elif agent_type == "researcher_c":
-                content, usage = call_llm(
-                    self.client,
-                    self.model,
+                ),
+                "researcher_c": (
                     "You are Researcher C. Focus on practical limitations and real-world system constraints. Keep under 100 words.",
                     f"Task: {state['task']}\nPlan:\n{state['plan']}",
-                )
-                state["research"]["researcher_c"] = content
-
-            elif agent_type == "synthesizer":
-                combined = "\n\n".join(
-                    f"{name}:\n{text}" for name, text in state["research"].items()
-                )
-                content, usage = call_llm(
-                    self.client,
-                    self.model,
+                ),
+                "synthesizer": (
                     "You are a synthesizer. Merge research notes into one coherent technical summary under 160 words.",
-                    combined,
-                )
-                state["synthesis"] = content
-
-            elif agent_type == "critic":
-                content, usage = call_llm(
-                    self.client,
-                    self.model,
+                    "\n\n".join(f"{n}:\n{t}" for n, t in state["research"].items()),
+                ),
+                "critic": (
                     "You are a critic. Point out 2 technical weaknesses and 1 improvement. Keep under 90 words.",
                     state["synthesis"],
-                )
-                state["critique"] = content
-
-            elif agent_type == "final_writer":
-                content, usage = call_llm(
-                    self.client,
-                    self.model,
+                ),
+                "final_writer": (
                     "You are the final writer. Produce a polished final report using the synthesis and critique under 160 words.",
                     f"Synthesis:\n{state['synthesis']}\n\nCritique:\n{state['critique']}",
-                )
-                state["final_answer"] = content
-            else:
+                ),
+            }
+            if agent_type not in prompts:
                 raise ValueError(f"Unknown agent type {agent_type}")
+            system, user = prompts[agent_type]
+            resp = self.backend.complete(system, user)
+            content, usage = resp.text, resp.usage
+
+            if agent_type == "planner":
+                state["plan"] = content
+            elif agent_type.startswith("researcher_"):
+                state["research"][agent_type] = content
+            elif agent_type == "synthesizer":
+                state["synthesis"] = content
+            elif agent_type == "critic":
+                state["critique"] = content
+            elif agent_type == "final_writer":
+                state["final_answer"] = content
 
             t_end = time.perf_counter()
             task_obj.finish_time = t_end - t0
@@ -195,8 +127,10 @@ class LiveWorkflowExecutor:
                 "finish_time": task_obj.finish_time,
                 "runtime_s": task_obj.actual_duration,
                 "waiting_time": task_obj.waiting_time,
-                "input_tokens": usage.get("input_tokens", 0),
-                "output_tokens": usage.get("output_tokens", 0),
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "provider": resp.provider,
+                "model": resp.model,
             }
             with traces_lock:
                 traces.append(record)
@@ -256,15 +190,17 @@ def run_live_comparison(
     num_workers: int = 2,
     out_dir: Path = DEFAULT_OUT_DIR,
     pause_s: float = 4.0,
+    backend_name: str | None = None,
 ) -> pd.DataFrame:
-    """Run live comparative evaluation of policies on Groq."""
+    """Run live comparative evaluation of policies on a free-tier backend."""
     out_dir.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, Any]] = []
-    traces_file = out_dir / "live_groq_traces.jsonl"
+    traces_file = out_dir / "live_traces.jsonl"
     open(traces_file, "w", encoding="utf-8").close()
 
-    client = get_groq_client()
-    policies = ["cpf", "fifo"]
+    backend = get_backend(backend_name)
+    print(f"Using free-tier backend: {backend.provider} / {backend.model}")
+    policies = ["cpf", "fifo", "couloir"]
 
     for i in range(num_runs):
         task = TASKS[i % len(TASKS)]
@@ -275,7 +211,7 @@ def run_live_comparison(
             executor = LiveWorkflowExecutor(
                 num_workers=num_workers,
                 policy_name=pol,
-                client=client,
+                backend=backend,
             )
             wf_result = executor.run_workflow(task)
             print(f"-> Completed [{pol.upper()}] in {wf_result['makespan']}s")
@@ -289,24 +225,40 @@ def run_live_comparison(
                     "policy": pol,
                     "num_workers": num_workers,
                     "makespan_s": wf_result["makespan"],
+                    "provider": backend.provider,
+                    "model": backend.model,
                 }
             )
             time.sleep(pause_s)
 
     df = pd.DataFrame(results)
-    df.to_csv(out_dir / "live_groq_comparison.csv", index=False)
+    df.to_csv(out_dir / "live_comparison.csv", index=False)
     return df
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run live Groq LLM workflow scheduling validation.")
+    parser = argparse.ArgumentParser(
+        description="Run live free-tier LLM workflow scheduling validation."
+    )
     parser.add_argument("--runs", type=int, default=5, help="Number of workflow runs")
     parser.add_argument("--workers", type=int, default=2, help="Worker pool slots")
     parser.add_argument("--out", type=str, default=str(DEFAULT_OUT_DIR), help="Output directory")
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default=None,
+        choices=["groq", "gemini", "openrouter"],
+        help="Free-tier backend (default: first available key)",
+    )
     args = parser.parse_args()
 
-    df = run_live_comparison(num_runs=args.runs, num_workers=args.workers, out_dir=Path(args.out))
-    print("\n=== Live Groq Results Summary ===")
+    df = run_live_comparison(
+        num_runs=args.runs,
+        num_workers=args.workers,
+        out_dir=Path(args.out),
+        backend_name=args.backend,
+    )
+    print("\n=== Live Results Summary ===")
     print(df.to_string(index=False))
 
 
