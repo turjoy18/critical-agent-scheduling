@@ -20,8 +20,8 @@ from typing import Callable, Iterable, Sequence
 
 from scheduler.dag import Task, WorkflowDAG
 
-# Retuned from batch leave-one-out: reuse load-bearing; slack/age weak or harmful
-# on mean metrics (starvation still unit-tested with age>0).
+# Consensus after batch grid (not a sharp optimum; shape-best often reuse=0.75).
+# Aging kept >0 for starvation unit tests.
 DEFAULT_WEIGHTS = {
     "cp": 1.0,
     "slack": 0.25,

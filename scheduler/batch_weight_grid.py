@@ -125,8 +125,18 @@ def main() -> None:
         "reuse": 1.5,
         "evict": 0.5,
         "age": 0.25,
-        "note": "Manual consensus from grid; see picks_by_shape",
-        "prior_defaults": dict(DEFAULT_WEIGHTS),
+        "note": (
+            "Consensus default after batch grid. Shape-best often reuse=0.75 "
+            "with near-tied hit/recompute; 1.5 is not a sharp optimum."
+        ),
+        "prior_defaults_pre_retune": {
+            "cp": 1.0,
+            "slack": 1.0,
+            "reuse": 0.75,
+            "evict": 0.5,
+            "age": 1.25,
+        },
+        "current_code_defaults": dict(DEFAULT_WEIGHTS),
         "picks_by_shape": picks,
     }
     rec_path = out / "batch_weight_recommended.json"

@@ -6,7 +6,7 @@
 
 ## Abstract
 
-Multi-agent LLM workflows expose two scarce resources under shared serving: worker slots \(K\) and prefix-cache capacity \(C\). Prior systems optimize ready-queue priority or cache residency in isolation. We present **Couloir**, a single utility that jointly ranks ready tasks and keep/evict/prefetch decisions. In a discrete-event simulator, the durable result is a **cache-joint** win under multi-arrival batch workloads: Couloir cuts recompute versus CPF+STE / FIFO+LRU when prefixes are keyed per `workflow:agent` (no cross-workflow type sharing). Batch makespan is typically **tied with CPF within noise**; a ~2% single-workflow fan-out makespan edge does not generalize. Aging is a starvation guard, not a latency claim. Live Gemini runs are smoke only. An optional SGLang engine track stays deferred while sim breadth is developed.
+Multi-agent LLM workflows expose two scarce resources under shared serving: worker slots \(K\) and prefix-cache capacity \(C\). Prior systems optimize ready-queue priority or cache residency in isolation. We present **Couloir**, a single utility that jointly ranks ready tasks and keep/evict/prefetch decisions. In a discrete-event simulator with **workflow-scoped** prefixes (no cross-workflow type freeloading), Couloir’s durable result is a **cache-joint** win under multi-arrival batches: large recompute cuts vs CPF+STE / FIFO+LRU, plus a consistent ~2–3% makespan edge at \(M\in\{5,10,20\}\). That edge is mostly “CPF collapses without freeloading,” not Couloir speeding up—scoped Couloir makespan barely moves vs type-keyed mode. Hits under scoping are largely **prefetch** (each agent runs once per workflow). Aging is a starvation guard. Live Gemini is smoke only. Optional SGLang validation is unlocked, not required.
 
 ---
 
@@ -14,7 +14,7 @@ Multi-agent LLM workflows expose two scarce resources under shared serving: work
 
 Agent frameworks (AutoGen, LangGraph) compose planner → parallel researchers → join → critic → writer DAGs. End-to-end latency is dominated by (i) **who runs when** under limited decode/API slots and (ii) **which KV prefixes stay resident** when GPU memory is tight. HEFT-style critical-path scheduling addresses (i); KVFlow STE/prefetch and related cache policies address (ii). Production stacks (vLLM, SGLang) expose reuse APIs but leave joint DAG-aware control to the application.
 
-**Claim.** Under shared \(K\) and \(C\), one utility over critical-path progress, slack, reuse, eviction pressure, and aging **improves prefix reuse / reduces recompute** versus compute-only, cache-only, or two-phase CPF→STE—especially under multi-arrival batches. Makespan reductions are secondary and not robust across workloads.
+**Claim.** Under shared \(K\) and \(C\), one utility over critical-path progress, slack, reuse, eviction pressure, and aging **improves prefix residency (via joint prefetch) and reduces recompute** versus compute-only, cache-only, or two-phase CPF→STE—especially under multi-arrival batches with workflow-scoped keys. Makespan gains are secondary (~2–3% batch under scoping; driven largely by baseline collapse without cross-WF freeloading).
 
 **Contributions.**
 
@@ -41,9 +41,11 @@ Agent frameworks (AutoGen, LangGraph) compose planner → parallel researchers �
 
 A workflow is a DAG of agent tasks with expected durations from LLM profiling means (writing) or synthetic means (chain, fan-out, random layered). \(K\) homogeneous workers. Prefix-cache capacity \(C\) holds prefixes of size \(P\). Profiled duration assumes cold prefill; a hit subtracts \(P/\lambda_{\mathrm{prefill}}\) (\(\lambda=1024\) tok/s). Metrics: makespan, JCT p50/p99, hit rate, recompute tokens.
 
-**Prefix keying (important).** Default `cache_key_mode=workflow_agent` keys residency by `workflow_id:agent_type`, so workflows do **not** share prefixes merely by sharing an agent-type string. The legacy `agent_type` mode enables cross-workflow reuse and **inflates** batch hit rates; it is retained only as a sensitivity. Do not quote type-keyed hit rates as KV hits to a reviewer.
+**Prefix keying (important).** Default `cache_key_mode=workflow_agent` keys residency by `workflow_id:agent_type`, so workflows do **not** share prefixes merely by sharing an agent-type string. The legacy `agent_type` mode enables cross-workflow reuse and **inflates** batch hit rates; sensitivity only. Do not quote type-keyed hit rates as KV hits.
 
-**DAGs:** writing; chain; fan-out; random layered (breadth under batch, not solo).
+**Prefetch, not cross-repeat reuse.** Under scoped keys each agent type runs once per workflow, so a “hit” is almost always Couloir **prefetching** the keep-set (`prefetch_top_k`) onto the GPU before dispatch—not reuse of a prior run of the same agent. Scoped hit rates ~0.96–0.98 vs CPF ~0.06–0.10 are therefore a **prefetch gap** from the joint utility, which is still the claim (dispatch order deciding what to prefetch).
+
+**DAGs:** writing; chain; fan-out; random layered (breadth under batch; solo random is null vs CPF).
 
 ---
 
@@ -55,7 +57,7 @@ For ready task \(i\) at time \(t\):
 U(i,t)=w_{\mathrm{cp}}\,\hat{r}_{\mathrm{cp}}(i)+w_{\mathrm{slack}}(1-\hat{r}_{\mathrm{slack}}(i))+w_{\mathrm{reuse}}\,\mathrm{reuse}(i)-w_{\mathrm{evict}}\,\mathrm{evict}(i)+w_{\mathrm{age}}\,\hat{a}(i,t)
 \]
 
-Defaults (batch-retuned) \(w=(1,0.25,1.5,0.5,0.25)\). Hats = min–max over the ready set. Same ranking drives keep / evict / prefetch. **Aging** = starvation guard (unit-tested); not a mean-makespan claim.
+Defaults \(w=(1,0.25,1.5,0.5,0.25)\) (consensus after batch grid; shape-best often uses `reuse=0.75` with near-tied metrics—not a sharp optimum). Hats = min–max over the ready set. Same ranking drives keep / evict / prefetch. **Aging** = starvation guard; not a mean-makespan claim.
 
 **Baselines:** FIFO, CPF, HEFT; FIFO+LRU; CPF+STE; two-phase CPF→STE; Couloir.
 
@@ -132,11 +134,11 @@ Batch \(M\in\{1,5,10,20\}\), \(K=4\), \(C=2048\), stagger 2 s (`batch_multi_ar
 | random | workflow_agent | **698** | 717 | 0.98 | 0.06 | **1536** | 76800 |
 | writing | workflow_agent | **736** | 751 | 0.96 | 0.10 | **2560** | 64512 |
 
-**Scoped recompute gap survives** (and makespan gap appears once CPF cannot freeload cross-WF type hits). Type-keyed mode remains an optimistic upper bound only.
+**Scoped recompute gap survives.** Couloir absolute makespan barely moves vs type-keyed (e.g. fan-out 587 vs 586.5); the ~2–3% batch edge is **CPF collapsing** without freeloading (604 / 717 / 751). Type-keyed remains an optimistic upper bound. Mechanism: scoped hits ≈ prefetch (see §3).
 
 ### 5.6 Batch weight grid
 
-`batch_weight_grid.csv` (324 rows). Defaults retuned to \(w=(1,0.25,1.5,0.5,0.25)\). Shape-specific optima vary; reuse stays necessary.
+`batch_weight_grid.csv` (324 rows). Consensus default \(w=(1,0.25,1.5,0.5,0.25)\); grid often ties `reuse=0.75` on hit/recompute (±1 s makespan)—do not oversell as the unique optimum.
 
 ### 5.7 Aging ablation
 
@@ -154,7 +156,7 @@ Conceptual prefill; synthetic non-writing DAGs. **Scoped cache gap survived → 
 
 ## 6. Discussion
 
-Lead with **joint reuse under multi-arrival with workflow-scoped keys**. Do not lead with makespan. Type-keyed batch hits are an upper-bound sensitivity, not a KV claim.
+Lead with **joint prefetch under multi-arrival with workflow-scoped keys**. Makespan edge under scoping ≈ CPF losing freeloaded hits. Type-keyed numbers are an optimistic upper bound, not a KV claim.
 
 ---
 

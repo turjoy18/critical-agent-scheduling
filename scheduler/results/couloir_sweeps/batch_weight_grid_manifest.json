@@ -1,6 +1,6 @@
 {
-  "git_sha": "fc2d12f043da93273a29b978128bd9a63f3add60",
-  "timestamp_iso": "2026-11-12T12:47:14Z",
+  "git_sha": "1abd68a1e22a57a987ad8c4694ce1ac2390efe2e",
+  "timestamp_iso": "2026-11-12T13:11:14Z",
   "grid": "scheduler\\results\\couloir_sweeps\\batch_weight_grid.csv",
   "recommended": "scheduler\\results\\couloir_sweeps\\batch_weight_recommended.json",
   "n_rows": 324
