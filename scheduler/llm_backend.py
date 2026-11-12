@@ -37,7 +37,7 @@ def _chat(
     provider: str,
     system: str,
     user: str,
-    max_retries: int = 5,
+    max_retries: int = 8,
 ) -> LLMResponse:
     import openai
     from openai import OpenAI
@@ -59,10 +59,18 @@ def _chat(
                 output_tokens=resp.usage.completion_tokens if resp.usage else 0,
             )
             return LLMResponse(content, usage, model, provider)
-        except openai.RateLimitError:
+        except (openai.RateLimitError, openai.APIStatusError) as e:
+            code = getattr(e, "status_code", None)
             if attempt >= max_retries - 1:
                 raise
-            time.sleep(3.0 * (attempt + 1))
+            if code not in (None, 429, 503, 500) and not isinstance(e, openai.RateLimitError):
+                raise
+            wait_s = min(60.0, 5.0 * (2**attempt))
+            print(
+                f"[{provider}] backoff {wait_s:.0f}s after {type(e).__name__} ({code})",
+                flush=True,
+            )
+            time.sleep(wait_s)
     raise RuntimeError("unreachable")
 
 
@@ -76,7 +84,9 @@ class GroqBackend:
         from openai import OpenAI
 
         self.model = model
-        self._client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
+        self._client = OpenAI(
+            api_key=key, base_url="https://api.groq.com/openai/v1", max_retries=0, timeout=60.0
+        )
 
     def complete(self, system: str, user: str) -> LLMResponse:
         return _chat(self._client, self.model, self.provider, system, user)
@@ -89,7 +99,7 @@ class GeminiOpenAICompatBackend:
 
     def __init__(
         self,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-flash-lite-latest",
         api_key: str | None = None,
         base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/",
     ) -> None:
@@ -99,7 +109,8 @@ class GeminiOpenAICompatBackend:
         from openai import OpenAI
 
         self.model = model
-        self._client = OpenAI(api_key=key, base_url=base_url)
+        # Disable SDK retries; _chat owns backoff so we don't stack waits.
+        self._client = OpenAI(api_key=key, base_url=base_url, max_retries=0, timeout=60.0)
 
     def complete(self, system: str, user: str) -> LLMResponse:
         return _chat(self._client, self.model, self.provider, system, user)
@@ -110,7 +121,7 @@ class OpenRouterFreeBackend:
 
     def __init__(
         self,
-        model: str = "google/gemma-2-9b-it:free",
+        model: str = "liquid/lfm-2.5-2.6b:free",
         api_key: str | None = None,
     ) -> None:
         key = api_key or os.getenv("OPENROUTER_API_KEY")
@@ -119,7 +130,9 @@ class OpenRouterFreeBackend:
         from openai import OpenAI
 
         self.model = model
-        self._client = OpenAI(api_key=key, base_url="https://openrouter.ai/api/v1")
+        self._client = OpenAI(
+            api_key=key, base_url="https://openrouter.ai/api/v1", max_retries=0, timeout=60.0
+        )
 
     def complete(self, system: str, user: str) -> LLMResponse:
         return _chat(self._client, self.model, self.provider, system, user)
@@ -130,7 +143,8 @@ def get_backend(name: str | None = None) -> LLMBackend:
     choice = (name or os.getenv("LLM_BACKEND") or "").strip().lower()
     if choice and choice not in ("groq", "gemini", "openrouter"):
         raise ValueError(f"Unknown LLM_BACKEND '{choice}'")
-    providers = [choice] if choice else ["groq", "gemini", "openrouter"]
+    # Prefer Gemini (generous free tier) when no explicit LLM_BACKEND is set.
+    providers = [choice] if choice else ["gemini", "groq", "openrouter"]
     factories = {
         "groq": GroqBackend,
         "gemini": GeminiOpenAICompatBackend,

@@ -46,6 +46,8 @@ When Couloir selects task \(i\):
 2. **Evict** on-GPU agents not in the keep set (lowest utility / highest STE first).
 3. **Prefetch** keep-set agents other than \(i\) (conceptual; used by joint engine).
 
+Prefetch hits shorten task duration by \(P/\lambda_{\mathrm{prefill}}\) (`PREFILL_TOKENS_PER_SEC` in `scheduler/engine.py`) so cache policy can move makespan, not only hit-rate counters.
+
 ## Baselines
 
 - Compute-only: FIFO, CPF, LSF, Simplified HEFT.
