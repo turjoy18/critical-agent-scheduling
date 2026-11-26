@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Couloir: joint compute and prefix-cache scheduling (corpus STORM)</title>
+</head>
+<body>
+<h1>Couloir from the local repository corpus</h1>
+<p>This article synthesizes only files inside the critical-agent-scheduling checkout. It does not claim external literature coverage beyond what the repository already cites.</p>
+<h2>Problem and claim</h2>
+<p>Couloir jointly schedules multi-agent LLM DAGs under shared worker slots K and prefix-cache capacity C with one utility for dispatch and keep/evict/prefetch.[1] Under workflow-scoped prefixes, the frozen softcopy reports a cache-joint win: large recompute reductions versus CPF+STE and FIFO+LRU, with a consistent ~2–3% batch makespan edge that is largely explained by CPF losing cross-workflow freeloading rather than Couloir accelerating absolute makespan.[1][2]</p>
+<h2>System model in this repository</h2>
+<p>The utility combines critical-path progress, slack, reuse, eviction pressure, and aging; consensus batch weights are (1, 0.25, 1.5, 0.5, 0.25).[3] Aging is documented as a starvation guard, not a mean-makespan claim.[3] Prefix residency defaults to workflow_agent keys; type-keyed agent_type mode is an optimistic sensitivity bound.[2][3]</p>
+<h2>Frozen sim evidence</h2>
+<p>Primary README table numbers for batch M=20 scoped prefixes: fanout Couloir recompute 2048 vs CPF 75776 and makespan 587 vs 604; random Couloir recompute 1536 vs CPF 76800 and makespan 698 vs 717.[1] Softcopy §3 states scoped hits are mostly prefetch of the keep-set before dispatch.[2]</p>
+<h2>What is not a paper claim</h2>
+<p>Live free-tier backends (Gemini default) validate integration only; paper numbers come from the discrete-event simulator.[4] STATUS freezes the sim track and pauses mentor outreach and GPU/SGLang work for months, directing any later GPU path through free Colab/Kaggle before paid cloud.[5]</p>
+<h2>Positioning</h2>
+<p>The repository positions Couloir against compute-only HEFT/CPF baselines and cache-only STE/LRU (KVFlow conceptual package), noting that production engines expose prefix APIs without a DAG-joint utility.[2] Venue notes point to arXiv cs.DC and a mentor-shaped workshop path after related-work hardening.[6]</p>
+<h2>References</h2>
+<ol>
+<li>README.md — Couloir overview, freeze posture, and primary scoped batch claim table.</li>
+<li>docs/PAPER_DRAFT.md — Softcopy abstract, model, prefetch interpretation, related work.</li>
+<li>docs/COULOIR.md — Glossary, utility formula, default weights, cache actions.</li>
+<li>docs/LIVE_BACKEND.md — Free-tier live backend policy and smoke-only interpretation.</li>
+<li>docs/STATUS.md — Sim freeze and paused mentor/GPU tracks.</li>
+<li>docs/VENUES.md — arXiv / workshop path after mentor shaping.</li>
+</ol>
+</body>
+</html>

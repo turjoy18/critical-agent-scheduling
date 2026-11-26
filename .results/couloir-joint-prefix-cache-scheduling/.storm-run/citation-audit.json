@@ -1,0 +1,142 @@
+{
+  "article": "storm_gen_article_polished.html",
+  "claims": [
+    {
+      "action": "keep",
+      "citation_ids": [
+        1
+      ],
+      "claim": "Couloir uses one utility for ready-queue order and keep/evict/prefetch under shared K and C.",
+      "evidence_note": "README lead definition and two-knobs slogan.",
+      "source_ids": [
+        1
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        1,
+        2
+      ],
+      "claim": "Scoped batch M=20 shows large recompute cuts and ~2-3% makespan edge vs CPF.",
+      "evidence_note": "README table + PAPER_DRAFT abstract.",
+      "source_ids": [
+        1,
+        2
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        3
+      ],
+      "claim": "Default Couloir weights are (1, 0.25, 1.5, 0.5, 0.25).",
+      "evidence_note": "COULOIR.md utility section.",
+      "source_ids": [
+        3
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        2,
+        3
+      ],
+      "claim": "workflow_agent keying avoids cross-workflow type freeloading; scoped hits are mostly prefetch.",
+      "evidence_note": "PAPER_DRAFT section 3 and COULOIR glossary.",
+      "source_ids": [
+        2,
+        3
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        4
+      ],
+      "claim": "Live Gemini/Groq is smoke only, not a paper claim.",
+      "evidence_note": "LIVE_BACKEND.md interpretation section.",
+      "source_ids": [
+        4
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        5
+      ],
+      "claim": "Sim is frozen; mentor/GPU/SGLang paused per STATUS.",
+      "evidence_note": "STATUS.md freeze table.",
+      "source_ids": [
+        5
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        6
+      ],
+      "claim": "Publication path is mentor-shaped arXiv/workshop.",
+      "evidence_note": "VENUES.md referenced from README/STATUS.",
+      "source_ids": [
+        6
+      ],
+      "support_status": "supported"
+    }
+  ],
+  "errors": [],
+  "schema_version": "1.0",
+  "sources": [
+    {
+      "doc_id": "README.md",
+      "id": 1,
+      "title": "README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/README.md"
+    },
+    {
+      "doc_id": "docs/PAPER_DRAFT.md",
+      "id": 2,
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md"
+    },
+    {
+      "doc_id": "docs/COULOIR.md",
+      "id": 3,
+      "title": "docs/COULOIR.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/COULOIR.md"
+    },
+    {
+      "doc_id": "docs/LIVE_BACKEND.md",
+      "id": 4,
+      "title": "docs/LIVE_BACKEND.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/LIVE_BACKEND.md"
+    },
+    {
+      "doc_id": "docs/STATUS.md",
+      "id": 5,
+      "title": "docs/STATUS.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/STATUS.md"
+    },
+    {
+      "doc_id": "docs/VENUES.md",
+      "id": 6,
+      "title": "docs/VENUES.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/VENUES.md"
+    }
+  ],
+  "used_citation_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "valid": true
+}

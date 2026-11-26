@@ -1,0 +1,146 @@
+{
+  "article": "storm_gen_article_polished.html",
+  "claims": [
+    {
+      "action": "keep",
+      "citation_ids": [
+        1
+      ],
+      "claim": "Couloir jointly optimizes dispatch and keep/evict/prefetch under K and C.",
+      "evidence_note": "Local softcopy claim.",
+      "source_ids": [
+        1
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        2
+      ],
+      "claim": "AutoGen motivates multi-agent DAGs without GPU/KV scheduling.",
+      "evidence_note": "AutoGen abstract/setting.",
+      "source_ids": [
+        2
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        3
+      ],
+      "claim": "HEFT is compute-only DAG baseline without KV management.",
+      "evidence_note": "HEFT upward rank description.",
+      "source_ids": [
+        3
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        4
+      ],
+      "claim": "KVFlow uses STE and proactive prefetch for prefix residency.",
+      "evidence_note": "KVFlow STE/prefetch sections.",
+      "source_ids": [
+        4
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        5
+      ],
+      "claim": "Continuum sets KV TTL from tool-duration cost/benefit.",
+      "evidence_note": "Continuum TTL model.",
+      "source_ids": [
+        5
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        6
+      ],
+      "claim": "TOPAS jointly schedules resident prefixes and admitted requests.",
+      "evidence_note": "TOPAS joint state formulation.",
+      "source_ids": [
+        6
+      ],
+      "support_status": "supported"
+    },
+    {
+      "action": "keep",
+      "citation_ids": [
+        7,
+        8
+      ],
+      "claim": "RadixAttention provides radix-tree prefix reuse with LRU eviction.",
+      "evidence_note": "SGLang paper + LMSYS blog.",
+      "source_ids": [
+        7,
+        8
+      ],
+      "support_status": "supported"
+    }
+  ],
+  "errors": [],
+  "schema_version": "1.0",
+  "sources": [
+    {
+      "id": 1,
+      "title": "Couloir PAPER_DRAFT (local)",
+      "url": "file://docs/PAPER_DRAFT.md"
+    },
+    {
+      "id": 2,
+      "title": "AutoGen (Wu et al.)",
+      "url": "https://arxiv.org/abs/2308.08155"
+    },
+    {
+      "id": 3,
+      "title": "HEFT (Topcuoglu et al.)",
+      "url": "https://ieeexplore.ieee.org/document/993206"
+    },
+    {
+      "id": 4,
+      "title": "KVFlow (Pan et al.)",
+      "url": "https://arxiv.org/abs/2507.07400"
+    },
+    {
+      "id": 5,
+      "title": "Continuum",
+      "url": "https://arxiv.org/abs/2511.02230"
+    },
+    {
+      "id": 6,
+      "title": "TOPAS",
+      "url": "https://arxiv.org/abs/2608.25523"
+    },
+    {
+      "id": 7,
+      "title": "SGLang / RadixAttention (Zheng et al.)",
+      "url": "https://arxiv.org/abs/2312.07104"
+    },
+    {
+      "id": 8,
+      "title": "LMSYS SGLang blog",
+      "url": "https://www.lmsys.org/blog/2024-01-17-sglang/"
+    }
+  ],
+  "used_citation_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "valid": true
+}

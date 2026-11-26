@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Draft — Couloir related-work positioning</title>
+</head>
+<body>
+<h1>Draft related-work positioning for Couloir</h1>
+<h2>Setting and Couloir claim</h2>
+<p>Couloir proposes one utility that jointly ranks ready tasks and keep/evict/prefetch under shared worker slots K and prefix-cache capacity C for multi-agent LLM DAGs.[1] Application frameworks such as AutoGen compose such DAGs but do not allocate shared decode slots or KV residency.[2] HEFT-style upward-rank scheduling remains the classic compute-only DAG baseline and does not manage LLM prefix KV.[3]</p>
+<h2>Residency-focused priors</h2>
+<p>KVFlow computes steps-to-execution on an Agent Step Graph and uses STE to prioritize fixed-prefix retention and proactive CPU-to-GPU prefetch; ready-queue compute priority is largely external to that cache policy.[4] Continuum pins KV after tool calls with a TTL chosen from tool-duration distributions and a cost/benefit model of memory opportunity versus avoided miss and queueing delay; it targets multi-turn tool intervals rather than DAG-wide joint dispatch under multi-workflow batches.[5]</p>
+<h2>Closest joint peer</h2>
+<p>TOPAS schedules a joint GPU state of resident agent prefixes and admitted requests under a shared KV budget, scoring DAG progress, prefix movement, preemption, one-hop reuse, and aging.[6] That joint framing is the closest systems peer to Couloir, but TOPAS is an engine-level online JCT scheduler with real capacity accounting, whereas Couloir's published evidence is still discrete-event and sim-primary.[1][6]</p>
+<h2>Serving default</h2>
+<p>SGLang RadixAttention retains prompt/generation KV in a radix tree with LRU leaf eviction and longest-prefix-aware admission; it is the honest production baseline for any Couloir engine case study and is stronger than the sim's CPF+STE stand-in.[7][8] A DAG-aware joint utility remains an application-level layer above that substrate.[1][7]</p>
+</body>
+</html>

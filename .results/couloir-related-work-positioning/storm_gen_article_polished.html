@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Related work positioning for Couloir (Classic STORM)</title>
+</head>
+<body>
+<h1>Related work positioning for Couloir</h1>
+<p>This survey positions Couloir against primary related systems retrieved for the softcopy's related-work pass. Citations map to the numbered reference list.</p>
+<h2>Setting and Couloir claim</h2>
+<p>Couloir argues that multi-agent LLM workflows expose two scarce resources—worker slots K and prefix-cache capacity C—and that a single utility should jointly decide ready-queue order and keep/evict/prefetch.[1] Multi-agent frameworks such as AutoGen motivate the DAG setting but leave shared GPU/KV control to the serving stack.[2] HEFT remains the canonical compute-only DAG ranking baseline; Couloir's sim uses CPF / simplified HEFT as compute-only controls and does not treat HEFT as a KV manager.[3]</p>
+<h2>Residency-focused priors</h2>
+<p>KVFlow is the clearest cache-only multi-agent prior: an Agent Step Graph yields steps-to-execution (STE), which drives fine-grained radix-node retention for fixed prefixes and proactive prefetch of likely-next agents, with status-aware handling while KV loads.[4] Continuum instead sets a KV time-to-live after tool calls from empirical tool-duration distributions, pinning memory when expected benefit (avoided miss/reload and out-of-order delay) exceeds opportunity cost.[5] Both primarily optimize residency timing; neither is Couloir's joint dispatch+cache utility under multi-arrival DAG batches.[1][4][5]</p>
+<h2>Closest joint peer</h2>
+<p>TOPAS schedules the joint post-decision state of resident agent prefixes and admitted requests subject to a token-equivalent KV budget, using a score over remaining-path progress, prefix movement, preemption, one-hop downstream reuse, and aging.[6] That is the nearest peer to Couloir's "two knobs, one policy" slogan. The difference that matters for the paper: TOPAS is an engine serving result aimed at task-level JCT under online arrivals, while Couloir's durable published evidence is still a discrete-event simulator with conceptual C and workflow-scoped keys.[1][6] Softcopy claims should therefore treat TOPAS as the systems peer to engage, not as already-solved by Couloir's sim.</p>
+<h2>Serving default</h2>
+<p>SGLang's RadixAttention automatically shares KV across common prefixes via a radix tree, evicts LRU leaves, and can schedule for longer prefix matches.[7][8] For an equal-citizen engine case study, RadixAttention-as-shipped is the honest baseline reviewers will demand; CPF+STE from the sim understates that default.[1][7] Couloir still has a coherent gap story only if joint DAG-aware control beats that default on recompute/makespan under real sharing—including the risk that workflow-scoped keys reduce genuine cross-workflow radix hits.[1]</p>
+<h2>Implications for the paper</h2>
+<p>Keep Couloir positioned as joint compute+cache control for multi-agent DAGs above residency-only (KVFlow, Continuum) and above request/prefix engines without DAG utilities (RadixAttention), while acknowledging TOPAS as the closest joint systems peer and the reason an SGLang case study must precede stronger venue claims.[1][4][5][6][7]</p>
+<h2>References</h2>
+<ol>
+<li>Couloir PAPER_DRAFT (local softcopy) — joint utility claim, scoped-cache sim story, stated related-work gap.</li>
+<li>Wu et al. AutoGen. arXiv:2308.08155 — multi-agent conversation framework.</li>
+<li>Topcuoglu et al. HEFT. IEEE TPDS 2002 — DAG upward-rank compute scheduling.</li>
+<li>Pan et al. KVFlow. arXiv:2507.07400 — STE eviction and proactive prefix prefetch.</li>
+<li>Continuum. arXiv:2511.02230 — KV cache TTL for multi-turn tool-using agents.</li>
+<li>TOPAS. arXiv:2608.25523 — joint prefix-state scheduling for multi-agent serving.</li>
+<li>Zheng et al. SGLang. arXiv:2312.07104 — RadixAttention prefix caching.</li>
+<li>LMSYS. Fast and Expressive LLM Inference with RadixAttention and SGLang (2024) — secondary description of radix LRU and cache-aware scheduling.</li>
+</ol>
+</body>
+</html>

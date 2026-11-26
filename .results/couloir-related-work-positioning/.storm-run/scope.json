@@ -1,0 +1,11 @@
+{
+  "topic": "Related work positioning for Couloir against KVFlow, Continuum, TOPAS, and RadixAttention",
+  "audience": "MLSys/EuroSys workshop reviewers and mentors",
+  "scope": "Classic STORM related-work survey with web-retrieved primary sources plus local Couloir softcopy claim. Focus on what each system optimizes and Couloir's gap.",
+  "recency": "sources 2002\u20132026; KVFlow 2025, Continuum 2025, TOPAS 2026, SGLang 2023/24",
+  "language": "en",
+  "source_boundary": "web primary papers/blogs listed in corpus plus local PAPER_DRAFT excerpt",
+  "output_boundary": ".results/couloir-related-work-positioning",
+  "depth": "positioning survey with citations",
+  "authority": "user requested Classic STORM related-work pass then commit/push"
+}

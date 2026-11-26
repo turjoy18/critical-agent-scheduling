@@ -1,0 +1,90 @@
+{
+  "claims": [
+    {
+      "claim": "Couloir jointly optimizes dispatch and keep/evict/prefetch under K and C.",
+      "citation_ids": [
+        1
+      ],
+      "source_ids": [
+        1
+      ],
+      "support_status": "supported",
+      "evidence_note": "Local softcopy claim.",
+      "action": "keep"
+    },
+    {
+      "claim": "AutoGen motivates multi-agent DAGs without GPU/KV scheduling.",
+      "citation_ids": [
+        2
+      ],
+      "source_ids": [
+        2
+      ],
+      "support_status": "supported",
+      "evidence_note": "AutoGen abstract/setting.",
+      "action": "keep"
+    },
+    {
+      "claim": "HEFT is compute-only DAG baseline without KV management.",
+      "citation_ids": [
+        3
+      ],
+      "source_ids": [
+        3
+      ],
+      "support_status": "supported",
+      "evidence_note": "HEFT upward rank description.",
+      "action": "keep"
+    },
+    {
+      "claim": "KVFlow uses STE and proactive prefetch for prefix residency.",
+      "citation_ids": [
+        4
+      ],
+      "source_ids": [
+        4
+      ],
+      "support_status": "supported",
+      "evidence_note": "KVFlow STE/prefetch sections.",
+      "action": "keep"
+    },
+    {
+      "claim": "Continuum sets KV TTL from tool-duration cost/benefit.",
+      "citation_ids": [
+        5
+      ],
+      "source_ids": [
+        5
+      ],
+      "support_status": "supported",
+      "evidence_note": "Continuum TTL model.",
+      "action": "keep"
+    },
+    {
+      "claim": "TOPAS jointly schedules resident prefixes and admitted requests.",
+      "citation_ids": [
+        6
+      ],
+      "source_ids": [
+        6
+      ],
+      "support_status": "supported",
+      "evidence_note": "TOPAS joint state formulation.",
+      "action": "keep"
+    },
+    {
+      "claim": "RadixAttention provides radix-tree prefix reuse with LRU eviction.",
+      "citation_ids": [
+        7,
+        8
+      ],
+      "source_ids": [
+        7,
+        8
+      ],
+      "support_status": "supported",
+      "evidence_note": "SGLang paper + LMSYS blog.",
+      "action": "keep"
+    }
+  ]
+}

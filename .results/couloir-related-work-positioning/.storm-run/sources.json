@@ -1,0 +1,44 @@
+{
+  "sources": [
+    {
+      "id": 1,
+      "title": "Couloir PAPER_DRAFT (local)",
+      "url": "file://docs/PAPER_DRAFT.md"
+    },
+    {
+      "id": 2,
+      "title": "AutoGen (Wu et al.)",
+      "url": "https://arxiv.org/abs/2308.08155"
+    },
+    {
+      "id": 3,
+      "title": "HEFT (Topcuoglu et al.)",
+      "url": "https://ieeexplore.ieee.org/document/993206"
+    },
+    {
+      "id": 4,
+      "title": "KVFlow (Pan et al.)",
+      "url": "https://arxiv.org/abs/2507.07400"
+    },
+    {
+      "id": 5,
+      "title": "Continuum",
+      "url": "https://arxiv.org/abs/2511.02230"
+    },
+    {
+      "id": 6,
+      "title": "TOPAS",
+      "url": "https://arxiv.org/abs/2608.25523"
+    },
+    {
+      "id": 7,
+      "title": "SGLang / RadixAttention (Zheng et al.)",
+      "url": "https://arxiv.org/abs/2312.07104"
+    },
+    {
+      "id": 8,
+      "title": "LMSYS SGLang blog",
+      "url": "https://www.lmsys.org/blog/2024-01-17-sglang/"
+    }
+  ]
+}

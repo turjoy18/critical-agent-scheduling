@@ -1,0 +1,961 @@
+{
+  "schema_version": "1.0",
+  "backend_requested": "lexical",
+  "backend_used": "lexical",
+  "algorithm": "bm25-unicode-v1",
+  "model": null,
+  "provider_version": "python-stdlib",
+  "fallback_reason": null,
+  "chunking": {
+    "size": 1200,
+    "overlap": 200,
+    "unit": "unicode-codepoints"
+  },
+  "corpus_hash": "a256440490b1fbbe80dc4a936b485df211ccdc0c53a2d231127bc54015d9f8ae",
+  "chunks": [
+    {
+      "source_id": "S1",
+      "chunk_id": "S1#0001",
+      "title": "README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/README.md",
+      "snippet": "# Couloir — Joint Compute + Prefix-Cache Scheduling\n\n**Couloir** schedules multi-agent LLM DAGs under shared worker slots `K` and prefix-cache capacity `C` with **one utility** for ready-queue order and keep/evict/prefetch.\n\n| Doc | Purpose |\n|-----|---------|\n| [`docs/PAPER_DRAFT.md`](docs/PAPER_DRAFT.md) | Softcopy paper (sim-primary) |\n| [`docs/COULOIR.md`](docs/COULOIR.md) | Claim + glossary |\n| [`docs/STATUS.md`](docs/STATUS.md) | **Freeze / pause posture** |\n| [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) | Regen commands |\n| [`docs/VENUES.md`](docs/VENUES.md) | arXiv / workshop (mentor-shaped) |\n\n> Two knobs, one policy: **who runs when** and **which KV prefixes to keep**.\n\n**Sim track is frozen.** No new weight grids or DAG shapes unless a mentor asks. Mentor pitch and GPU are paused (months); see [`docs/STATUS.md`](docs/STATUS.md).\n\n## Tracks\n\n| Track | Role | Status |\n|-------|------|--------|\n| **Sim** | Source of truth | **Frozen** — matrix, scoped-cache batch, softcopy |\n| **Live free-tier** | Gemini smoke | Done — not a paper claim |\n| **Engine** | SGLang case study | **Paused** — Colab first, only after mentor |\n\n**Cost policy:** free LLM APIs only; GPU ≤ US$5",
+      "snippet_hash": "161049765eb7efc09c96c4b3fd6f1e98a8357788ee826b5aaa02eb682b98458b"
+    },
+    {
+      "source_id": "S1",
+      "chunk_id": "S1#0002",
+      "title": "README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/README.md",
+      "snippet": "opy |\n| **Live free-tier** | Gemini smoke | Done — not a paper claim |\n| **Engine** | SGLang case study | **Paused** — Colab first, only after mentor |\n\n**Cost policy:** free LLM APIs only; GPU ≤ US$50 if ever resumed.\n\n## Quick start (reproduce frozen artifacts)\n\n```bash\npython -m venv .venv\n# Windows Git Bash: source .venv/Scripts/activate\n# Linux/macOS:      source .venv/bin/activate\npip install -r requirements.txt\n\npython -m unittest discover -s scheduler/tests -v\n# Optional full regen (do not treat as “keep iterating”):\n# see docs/REPRODUCIBILITY.md\n```\n\nPrimary claim numbers: batch \\(M=20\\), **workflow-scoped** prefixes — see softcopy §5.5.\n\n| Shape | Couloir recompute | CPF recompute | Couloir makespan | CPF makespan |\n|-------|-------------------|---------------|------------------|--------------|\n| fanout | **2048** | 75776 | **587** | 604 |\n| random | **1536** | 76800 | **698** | 717 |\n\n## Layout\n\n| Path | Purpose |\n|------|---------|\n| `scheduler/` | Discrete-event Couloir + frozen sweep CSVs |\n| `kvflow/` | Conceptual STE/LRU sim |\n| `llm/`, `simulated/` | Profiling (historical) |\n| `docs/` | Paper + status |\n\n## References\n\n- Pan et al. 2025. *KVFlow.* arXiv:2507.07400.",
+      "snippet_hash": "5e8bd47fc2b13fe4672ce0984dd9f9848f0de8ce4189f68ee21c64fa0e5da7aa"
+    },
+    {
+      "source_id": "S1",
+      "chunk_id": "S1#0003",
+      "title": "README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/README.md",
+      "snippet": "frozen sweep CSVs |\n| `kvflow/` | Conceptual STE/LRU sim |\n| `llm/`, `simulated/` | Profiling (historical) |\n| `docs/` | Paper + status |\n\n## References\n\n- Pan et al. 2025. *KVFlow.* arXiv:2507.07400.\n- Topcuoglu et al. 2002. HEFT. *IEEE TPDS*.\n- Wu et al. 2023. *AutoGen.* arXiv:2308.08155.",
+      "snippet_hash": "3058bf21ed96b145e2c825a553c79694581ffb98a876805e980df12291a733e9"
+    },
+    {
+      "source_id": "S2",
+      "chunk_id": "S2#0001",
+      "title": "docs/COULOIR.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/COULOIR.md",
+      "snippet": "# Couloir\n\nJoint **compute + prefix-cache** scheduling for multi-agent LLM DAGs under shared worker slots `K` and cache capacity `C`.\n\n## Claim\n\nUnder multi-tenant contention (batch arrivals, tight `C`), a single utility that jointly ranks ready tasks and keep/evict/prefetch decisions **improves prefix reuse / cuts recompute** versus compute-only or cache-only (and versus two-phase CPF→STE). Makespan gains are **narrow and workload-dependent** (sometimes ~tied with CPF); do not treat Couloir as a universal latency hammer.\n\n## Glossary\n\n| Term | Meaning |\n| --- | --- |\n| **K** | Number of homogeneous worker slots (API / GPU decode slots in the sim). |\n| **C** | Prefix-cache capacity in tokens (conceptual GPU KV budget). |\n| **CPF** | Critical-Path-First: schedule highest remaining upward rank first. |\n| **STE** | Steps-to-execution (KVFlow): temporal proximity used for cache eviction. |\n| **Couloir** | Joint policy: one score drives ready-queue order **and** keep/evict/prefetch. |\n| **cache_key_mode** | `workflow_agent` (default): no cross-workflow prefix sharing. `agent_type`: optimistic shared types (sensitivity only). |\n| **Sim track** | Discrete-event simulator in `scheduler/` —",
+      "snippet_hash": "ab26f56752164d99d18aa1e384b68bfe2eeef8958d4b30aae3328ba1b2ad8f8b"
+    },
+    {
+      "source_id": "S2",
+      "chunk_id": "S2#0002",
+      "title": "docs/COULOIR.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/COULOIR.md",
+      "snippet": "ache_key_mode** | `workflow_agent` (default): no cross-workflow prefix sharing. `agent_type`: optimistic shared types (sensitivity only). |\n| **Sim track** | Discrete-event simulator in `scheduler/` — source of truth for the claim. |\n| **Engine track** | Optional SGLang + local 8B case study (equal-citizen after gate); deferred while sim breadth is thin. |\n| **Free-tier live** | Live LLM validation must use $0 API tiers; paid budget is GPU-only (≤ US$50). |\n\n## Utility\n\nFor ready task \\(i\\) at time \\(t\\):\n\n\\[\nU(i,t)=w_{\\mathrm{cp}}\\,\\hat{r}_{\\mathrm{cp}}(i)+w_{\\mathrm{slack}}(1-\\hat{r}_{\\mathrm{slack}}(i))+w_{\\mathrm{reuse}}\\,\\mathrm{reuse}(i)-w_{\\mathrm{evict}}\\,\\mathrm{evict}(i)+w_{\\mathrm{age}}\\,\\hat{a}(i,t)\n\\]\n\nDefault weights (batch-retuned): `cp=1`, `slack=0.25`, `reuse=1.5`, `evict=0.5`, `age=0.25` (`scheduler/couloir.py`).\n\n**Aging** is a starvation guard (unit-tested under adversarial ready sets). It is **not** a mean-makespan claim; batch ablations show near-zero or slightly worse latency when age is large.\n\n## Cache actions\n\nWhen Couloir selects task \\(i\\):\n\n1. **Keep** \\(i\\) and up to `prefetch_top_k` other high-utility ready prefixes.\n2. **Evict** on-GPU prefixes not i",
+      "snippet_hash": "153b09e766c437ee571b23dd18596b8be92fc4ad250d9ebc932d3bcbb6a4b682"
+    },
+    {
+      "source_id": "S2",
+      "chunk_id": "S2#0003",
+      "title": "docs/COULOIR.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/COULOIR.md",
+      "snippet": "worse latency when age is large.\n\n## Cache actions\n\nWhen Couloir selects task \\(i\\):\n\n1. **Keep** \\(i\\) and up to `prefetch_top_k` other high-utility ready prefixes.\n2. **Evict** on-GPU prefixes not in the keep set.\n3. **Prefetch** keep-set prefixes other than \\(i\\).\n\nPrefetch hits shorten duration by \\(P/\\lambda_{\\mathrm{prefill}}\\) (conceptual). Default prefix key is `workflow_id:agent_type`.\n\n## Baselines\n\n- Compute-only: FIFO, CPF, LSF, Simplified HEFT.\n- Cache-only: LRU, STE (`kvflow/` + en",
+      "snippet_hash": "8b4961cea7c93ae1c11fd76619bfb4b5c7f9c62a93ef159456896445372c2da1"
+    },
+    {
+      "source_id": "S3",
+      "chunk_id": "S3#0001",
+      "title": "docs/COULOIR.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/COULOIR.md",
+      "snippet": "gine modes).\n- Ablation: two-phase CPF then STE vs joint Couloir.\n\n## Code\n\n| Module | Role |\n| --- | --- |\n| `scheduler/couloir.py` | Scoring + cache action planning |\n| `scheduler/engine.py` | Discrete-event workers; joint cache; key modes |\n| `scheduler/cache_scope_sensitivity.py` | type-keyed vs workflow-scoped |\n| `scheduler/batch_weight_grid.py` | Batch weight grid |\n\n## Paper path\n\nSim **frozen** → softcopy → mentor (Dr. Zhou first, later) → arXiv / workshop. GPU/SGLang **paused** until mentor direction; then free Colab/Kaggle before any ≤US$50 spend. See [`STATUS.md`](STATUS.md).",
+      "snippet_hash": "e6d58891de10f2831cc4bb473c569c90e8d3fdcd1886fb7d5debe45bdc269256"
+    },
+    {
+      "source_id": "S4",
+      "chunk_id": "S4#0001",
+      "title": "docs/GPU_CLOUD.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/GPU_CLOUD.md",
+      "snippet": "# Cloud / free GPU playbook (≤ US$50)\n\n**Paused (2026-11):** do not run paid GPU until after mentor review — design may change. When resumed: Colab/Kaggle free smoke first; RunPod/Vast only for equal-citizen gate. Expect real RadixAttention results between scoped and type-keyed sim numbers (genuine shared system prompts).\n\n**Decision:** no department GPU (#13 closed).\n\n## Tier ladder\n\n| Tier | Cost | Use |\n|------|------|-----|\n| 1. Google Colab (free/T4) | $0 | SGLang install smoke, tiny prompts |\n| 2. Kaggle Notebooks (P100/T4 quotas) | $0 | Longer bring-up sessions |\n| 3. RunPod / Vast.ai spot | ≤ **$50** hard cap | Equal-citizen gate (#32) if free tiers fail |\n\n## Colab / Kaggle smoke\n\n1. Runtime → GPU (T4 if available).\n2. Install: `pip install \"sglang[all]\"`.\n3. Launch server (adjust model to VRAM):\n   ```bash\n   python -m sglang.launch_server --model-path Qwen/Qwen2.5-7B-Instruct --tp 1\n   ```\n4. Hit `/v1/chat/completions` with a 2-agent micro-DAG; record tokens/s + whether prefix cache hits appear in metrics.\n5. Tear down the runtime when done (Colab disconnects idle sessions).\n\n## Paid cloud (only if needed)\n\nHard rules:\n\n- Set a **billing alarm at $40**; stop at **$50**.",
+      "snippet_hash": "4e6f53e4bcb06898149e43d81f34033f1f05568fb02ad0b0bc5972f32170524c"
+    },
+    {
+      "source_id": "S4",
+      "chunk_id": "S4#0002",
+      "title": "docs/GPU_CLOUD.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/GPU_CLOUD.md",
+      "snippet": "ix cache hits appear in metrics.\n5. Tear down the runtime when done (Colab disconnects idle sessions).\n\n## Paid cloud (only if needed)\n\nHard rules:\n\n- Set a **billing alarm at $40**; stop at **$50**.\n- Prefer spot/interruptible A10/L4 24GB.\n- Log every session in the table below before starting the pod.\n\n### Cost log\n\n| Date | Provider | GPU | $/hr | Hours | Spend | Purpose | Pod ID |\n|------|----------|-----|------|-------|-------|---------|--------|\n| | | | | | | | |\n\n**Running total:** $0 / $50\n\n### Tear-down checklist\n\n- [ ] Kill SGLang / training processes\n- [ ] Stop / terminate pod (not just SSH disconnect)\n- [ ] Confirm billing dashboard shows stopped\n- [ ] Append row to cost log\n- [ ] Commit manifests/metrics under `scheduler/results/` or `engine/results/`\n\n## Relation to Couloir\n\nSim remains source of truth. GPU track is an optional case study (#29–#32), not a blocker for arXiv draft.",
+      "snippet_hash": "9173b6270fba9ddeda07b39a33b1c3d60f22d30e5b5000209b2333f58aa77e41"
+    },
+    {
+      "source_id": "S5",
+      "chunk_id": "S5#0001",
+      "title": "docs/GPU_REQUEST.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/GPU_REQUEST.md",
+      "snippet": "# CS department GPU workstation request\n\n**Status:** department GPU unavailable (#13 closed). Use [`GPU_CLOUD.md`](GPU_CLOUD.md) (Colab/Kaggle → ≤US$50 cloud). Archive below kept for reuse if a workstation opens later.\n\n## Ask\n\nSubject: GPU workstation request for Couloir multi-agent LLM scheduling research\n\nPlease request a workstation for SGLang + 8B-class model experiments (prefix-cache case study for a systems paper):\n\n| | Spec |\n|---|---|\n| **Preferred** | 1× 48GB GPU (RTX 6000 Ada / L40S / A6000) |\n| **Acceptable** | 1× 24GB (RTX 4090-class) |\n| Host | Ubuntu 22.04/24.04, NVIDIA driver ≥550, Docker, sudo for CUDA/SGLang installs |\n| Use | Research only; burst experiments, not 24/7 training |\n\nIf denied/delayed: cloud rental (RunPod/Vast) with hard cap **US$50** (issue #28).\n\n## After you hear back\n\nComment on https://github.com/turjoy18/critical-agent-scheduling/issues/13 with: allocated / denied / waitlist + GPU model.",
+      "snippet_hash": "2f35a20cabc31fd8f8da3b70cef000cc185fee365fad362819bc729d9fc19a35"
+    },
+    {
+      "source_id": "S6",
+      "chunk_id": "S6#0001",
+      "title": "docs/LIVE_BACKEND.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/LIVE_BACKEND.md",
+      "snippet": "# Free-tier live backend of record\n\n**Cost policy:** chat/completions use free-tier APIs only. Paid budget is GPU-only (≤ US$50; see [`GPU_CLOUD.md`](GPU_CLOUD.md)).\n\n## Default\n\n| Knob | Value |\n|------|--------|\n| Resolution order | `LLM_BACKEND` → **gemini** → groq → openrouter |\n| Gemini model | `gemini-flash-lite-latest` (OpenAI-compat) |\n| Env | `GEMINI_API_KEY` from Google AI Studio |\n\n`gemini-2.5-flash` works but hits free RPM quickly. Bare `gemini-2.5-flash-lite` returns 404 on the OpenAI-compat endpoint; use `gemini-flash-lite-latest`.\n\n## Run\n\n```bash\ncp env.example .env   # set GEMINI_API_KEY\npython -m scheduler.live_runner --backend gemini --runs 2 --workers 2\n```\n\nArtifacts: `scheduler/results/live_comparison.csv`, `live_traces.jsonl`.\n\n## Interpretation\n\nLive makespans are dominated by provider latency/jitter, not Couloir’s cache utility (no local KV store on the free API path). Treat live runs as **integration smoke**, not paper claims. Paper numbers come from the discrete-event sim (`scheduler.couloir_sweep` / `scheduler.experiment`).",
+      "snippet_hash": "895b692176259022de8398310528828f08f93f34a284406243d93dd4b8e330b6"
+    },
+    {
+      "source_id": "S7",
+      "chunk_id": "S7#0001",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "# Couloir: Joint Compute and Prefix-Cache Scheduling for Multi-Agent LLM Workflows\n\n**Status:** softcopy draft (sim-primary) — **sim frozen**; mentor/GPU paused. Figures: `scheduler/results/couloir_sweeps/figures/`. See [`STATUS.md`](STATUS.md), [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).\n\n---\n\n## Abstract\n\nMulti-agent LLM workflows expose two scarce resources under shared serving: worker slots \\(K\\) and prefix-cache capacity \\(C\\). Prior systems optimize ready-queue priority or cache residency in isolation. We present **Couloir**, a single utility that jointly ranks ready tasks and keep/evict/prefetch decisions. In a discrete-event simulator with **workflow-scoped** prefixes (no cross-workflow type freeloading), Couloir’s durable result is a **cache-joint** win under multi-arrival batches: large recompute cuts vs CPF+STE / FIFO+LRU, plus a consistent ~2–3% makespan edge at \\(M\\in\\{5,10,20\\}\\). That edge is mostly “CPF collapses without freeloading,” not Couloir speeding up—scoped Couloir makespan barely moves vs type-keyed mode. Hits under scoping are largely **prefetch** (each agent runs once per workflow). Aging is a starvation guard. Live Gemini is smoke only. Optional SGLang v",
+      "snippet_hash": "c15f3f52a55fd42e0cf835f9e79f3fb78103fc89a45ab5ab4fcf43bdc2bdf82e"
+    },
+    {
+      "source_id": "S7",
+      "chunk_id": "S7#0002",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "oir makespan barely moves vs type-keyed mode. Hits under scoping are largely **prefetch** (each agent runs once per workflow). Aging is a starvation guard. Live Gemini is smoke only. Optional SGLang validation is unlocked, not required.\n\n---\n\n## 1. Introduction\n\nAgent frameworks (AutoGen, LangGraph) compose planner → parallel researchers → join → critic → writer DAGs. End-to-end latency is dominated by (i) **who runs when** under limited decode/API slots and (ii) **which KV prefixes stay resident** when GPU memory is tight. HEFT-style critical-path scheduling addresses (i); KVFlow STE/prefetch and related cache policies address (ii). Production stacks (vLLM, SGLang) expose reuse APIs but leave joint DAG-aware control to the application.\n\n**Claim.** Under shared \\(K\\) and \\(C\\), one utility over critical-path progress, slack, reuse, eviction pressure, and aging **improves prefix residency (via joint prefetch) and reduces recompute** versus compute-only, cache-only, or two-phase CPF→STE—especially under multi-arrival batches with workflow-scoped keys. Makespan gains are secondary (~2–3% batch under scoping; driven largely by baseline collapse without cross-WF freeloading).\n\n**Contrib",
+      "snippet_hash": "4395b365409e86fed3fc6a29bb800e5e4c42c781b053b2a3f932b0d31f956fff"
+    },
+    {
+      "source_id": "S7",
+      "chunk_id": "S7#0003",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "especially under multi-arrival batches with workflow-scoped keys. Makespan gains are secondary (~2–3% batch under scoping; driven largely by baseline collapse without cross-WF freeloading).\n\n**Contributions.**\n\n1. Couloir joint utility and cache action planner (`scheduler/couloir.py`).\n2. Discrete-event eval: multi-DAG matrix, batch/random, weight grid, **workflow-scoped vs type-keyed** cache sensitivity.\n3. Free-tier live smoke (Gemini); cost policy: free chat APIs; GPU ≤US$50 only.\n4. Softcopy",
+      "snippet_hash": "4cbd97e513c89cd2ccc10a655c870fdeefcb8863e651600c61174feb5161ff6c"
+    },
+    {
+      "source_id": "S8",
+      "chunk_id": "S8#0001",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "+ regenerable artifacts toward arXiv / workshop.\n\n---\n\n## 2. Related work\n\n**DAG / critical-path scheduling.** HEFT ranks by upward rank under heterogeneous processors [Topcuoglu et al., TPDS 2002]. We use homogeneous CPF / simplified HEFT as compute-only baselines.\n\n**Prefix-cache for agent workflows.** KVFlow introduces STE and STE+prefetch [Pan et al., arXiv:2507.07400]. Continuum-style TTL and TOPAS-style joint prefix-state optimize residency with ready-queue order treated as external. Serving engines provide RadixAttention / prefix APIs without DAG joint utilities.\n\n**Multi-agent frameworks.** AutoGen and LangGraph orchestrate graphs; they do not schedule GPU slots or KV eviction under shared \\(K,C\\).\n\n**Gap.** Couloir jointly decides dispatch and residency; two-phase CPF→STE is the sequential-knob ablation.\n\n---\n\n## 3. Model\n\nA workflow is a DAG of agent tasks with expected durations from LLM profiling means (writing) or synthetic means (chain, fan-out, random layered). \\(K\\) homogeneous workers. Prefix-cache capacity \\(C\\) holds prefixes of size \\(P\\). Profiled duration assumes cold prefill; a hit subtracts \\(P/\\lambda_{\\mathrm{prefill}}\\) (\\(\\lambda=1024\\) tok/s). Metrics:",
+      "snippet_hash": "c045c7a958339fa5a7dc01352f3386d04939654f155f903afc0d7c4bbe9181cd"
+    },
+    {
+      "source_id": "S8",
+      "chunk_id": "S8#0002",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "ogeneous workers. Prefix-cache capacity \\(C\\) holds prefixes of size \\(P\\). Profiled duration assumes cold prefill; a hit subtracts \\(P/\\lambda_{\\mathrm{prefill}}\\) (\\(\\lambda=1024\\) tok/s). Metrics: makespan, JCT p50/p99, hit rate, recompute tokens.\n\n**Prefix keying (important).** Default `cache_key_mode=workflow_agent` keys residency by `workflow_id:agent_type`, so workflows do **not** share prefixes merely by sharing an agent-type string. The legacy `agent_type` mode enables cross-workflow reuse and **inflates** batch hit rates; sensitivity only. Do not quote type-keyed hit rates as KV hits.\n\n**Prefetch, not cross-repeat reuse.** Under scoped keys each agent type runs once per workflow, so a “hit” is almost always Couloir **prefetching** the keep-set (`prefetch_top_k`) onto the GPU before dispatch—not reuse of a prior run of the same agent. Scoped hit rates ~0.96–0.98 vs CPF ~0.06–0.10 are therefore a **prefetch gap** from the joint utility, which is still the claim (dispatch order deciding what to prefetch).\n\n**DAGs:** writing; chain; fan-out; random layered (breadth under batch; solo random is null vs CPF).\n\n---\n\n## 4. Couloir\n\nFor ready task \\(i\\) at time \\(t\\):\n\n\\[\nU(i,t)=w_",
+      "snippet_hash": "da066ce6f0430bc8f83d4c821662177c5c6523cb0a3cbb51a47ac64efdbc6a4a"
+    },
+    {
+      "source_id": "S8",
+      "chunk_id": "S8#0003",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "deciding what to prefetch).\n\n**DAGs:** writing; chain; fan-out; random layered (breadth under batch; solo random is null vs CPF).\n\n---\n\n## 4. Couloir\n\nFor ready task \\(i\\) at time \\(t\\):\n\n\\[\nU(i,t)=w_{\\mathrm{cp}}\\,\\hat{r}_{\\mathrm{cp}}(i)+w_{\\mathrm{slack}}(1-\\hat{r}_{\\mathrm{slack}}(i))+w_{\\mathrm{reuse}}\\,\\mathrm{reuse}(i)-w_{\\mathrm{evict}}\\,\\mathrm{evict}(i)+w_{\\mathrm{age}}\\,\\hat{a}(i,t)\n\\]\n\nDefaults \\(w=(1,0.25,1.5,0.5,0.25)\\) (consensus after batch grid; shape-best often uses `reuse=0.7",
+      "snippet_hash": "d1c91ce454a424e0a4bafe309add48b31a5b10a7f3721f5296cf24c4dca400d6"
+    },
+    {
+      "source_id": "S9",
+      "chunk_id": "S9#0001",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "5` with near-tied metrics—not a sharp optimum). Hats = min–max over the ready set. Same ranking drives keep / evict / prefetch. **Aging** = starvation guard; not a mean-makespan claim.\n\n**Baselines:** FIFO, CPF, HEFT; FIFO+LRU; CPF+STE; two-phase CPF→STE; Couloir.\n\n---\n\n## 5. Evaluation\n\n**Setup.** \\(K\\in\\{1,2,3\\}\\), \\(P=512\\), \\(C\\in\\{1024,2048,4096\\}\\). Artifact: `couloir_baseline_matrix.csv`. Commands in [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).\n\n### 5.1 Makespan (\\(C=2048\\))\n\n| DAG | \\(K\\) | FIFO | CPF / HEFT | Couloir |\n|-----|-------|------|------------|---------|\n| writing | 2 | 118.75 | 118.75 | 118.75 |\n| writing | 1 | 149.32 | 149.32 | **148.32** |\n| chain | 2 | 89.00 | 89.00 | 89.00 |\n| fanout | 2 | 72.00 | 68.00 | **66.50** |\n| fanout | 3 | 56.00 | 48.00 | **47.50** |\n| fanout | 1 | 120.00 | 120.00 | **117.50** |\n\nFan-out: CPF already beats FIFO by ranking long branches; Couloir’s prefetch hits further cut prefill on the critical path. Writing/chain: single-shot agent types put many hit savings off the critical path → makespan often ties CPF.\n\n### 5.2 Cache efficiency (\\(K=2\\), \\(C=2048\\))\n\n| DAG | Policy | Hit rate | Recompute tokens |\n|-----|--------|----------|----",
+      "snippet_hash": "eda18d86d6f5d01eb76e5ad13a2468c9e3ef70e5411bd30f7df98356467bdc8b"
+    },
+    {
+      "source_id": "S9",
+      "chunk_id": "S9#0002",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "es put many hit savings off the critical path → makespan often ties CPF.\n\n### 5.2 Cache efficiency (\\(K=2\\), \\(C=2048\\))\n\n| DAG | Policy | Hit rate | Recompute tokens |\n|-----|--------|----------|------------------|\n| writing | FIFO+LRU | 0.00 | 3584 |\n| writing | CPF+STE / 2P+STE | 0.14 | 3072 |\n| writing | **Couloir** | **0.29** | **2560** |\n| fanout | FIFO+LRU | 0.00 | 4096 |\n| fanout | CPF+STE / 2P+STE | 0.12 | 3584 |\n| fanout | **Couloir** | **0.62** | **1536** |\n| chain | all | 0.00 | 3584 |\n\nTwo-phase matches CPF+STE on cache metrics, not Couloir—supporting the **joint** claim on the reuse axis.\n\n### 5.3 Weight sensitivity and leave-one-out\n\n**Single workflow:** dropping any term leaves fan-out makespan at 66.5 s and writing at 118.75 s (`weight_leave_one_out.csv`, `weight_sensitivity.csv`). Ready-set structure is too constrained for weights to reshuffle order.\n\n**Batch \\(M=10\\), \\(K=4\\), stagger 2 s** (`weight_batch_leave_one_out.csv`):\n\n| Shape | Config | Makespan | Hit rate | Recompute |\n|-------|--------|----------|----------|-----------|\n| fanout | default | 295.5 | 0.91 | 3584 |\n| fanout | drop **reuse** | **300.0** | **0.56** | **17920** |\n| fanout | drop age | 295.0",
+      "snippet_hash": "fa3ee3c0b2492434a40c27bb032a99efb942168c012996c1be1812877c2e86ae"
+    },
+    {
+      "source_id": "S9",
+      "chunk_id": "S9#0003",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "Recompute |\n|-------|--------|----------|----------|-----------|\n| fanout | default | 295.5 | 0.91 | 3584 |\n| fanout | drop **reuse** | **300.0** | **0.56** | **17920** |\n| fanout | drop age | 295.0 | 0.98 | 1024 |\n| random | default | 333.8 | 0.98 | 1024 |\n| random | drop **reuse** | 335.3 | 0.88 | 5120 |\n\n**Reuse is the load-bearing cache term under multi-arrival.** CP/slack/evict/age barely move batch makespan on these shapes; aging remains a starvation guard (unit-tested) rather than a mean",
+      "snippet_hash": "d73260d05be397d1a281e51ae09493035bb638e0113185fa0958a6877ecaf84a"
+    },
+    {
+      "source_id": "S10",
+      "chunk_id": "S10#0001",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "-makespan lever.\n\n### 5.4 Random DAGs + batch multi-arrival\n\n24 solo random layered DAGs (\\(K=2\\)): Couloir/CPF/two-phase **tie** mean makespan (82.2 s); Couloir/CPF hit rate 0.27 vs FIFO 0.00 (`random_solo_summary.csv`).\n\nBatch \\(M\\in\\{1,5,10,20\\}\\), \\(K=4\\), \\(C=2048\\), stagger 2 s (`batch_multi_arrival.csv`):\n\n| Shape | \\(M\\) | FIFO makespan | CPF makespan | Couloir makespan | Couloir hit | CPF hit |\n|-------|-------|---------------|--------------|------------------|-------------|---------|\n| fanout | 20 | 600.5 | 587.5 | **586.5** | **0.95** | 0.92 |\n| random | 20 | 727.6 | **706.2** | 709.1 | **0.99** | 0.62 |\n| writing | 20 | 746.9 | 735.1 | **734.5** | **0.99** | 0.98 |\n\n**Takeaway (type-keyed, pre-fix):** relative recompute gaps look huge but are inflated by cross-WF type sharing. Makespan batch “wins” at M=20 are **noise** (≤1 s); CPF often ahead on random/fanout M=5–10. Solo random DAGs are a **null** test (Couloir≡CPF).\n\n### 5.5 Cache keying sensitivity (primary batch claim)\n\n`cache_scope_sensitivity.csv` — \\(M=20\\), \\(K=4\\), \\(C=2048\\):\n\n| Shape | Mode | Couloir makespan | CPF makespan | Couloir hit | CPF hit | Couloir recompute | CPF recompute |\n|-------|------|-------",
+      "snippet_hash": "dba12bb4ab0cb9e29e51c0b1564462f1946811d15728590f8d0765c3e49936db"
+    },
+    {
+      "source_id": "S10",
+      "chunk_id": "S10#0002",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "`cache_scope_sensitivity.csv` — \\(M=20\\), \\(K=4\\), \\(C=2048\\):\n\n| Shape | Mode | Couloir makespan | CPF makespan | Couloir hit | CPF hit | Couloir recompute | CPF recompute |\n|-------|------|------------------|--------------|-------------|---------|-------------------|---------------|\n| fanout | workflow_agent | **587** | 604 | 0.98 | 0.08 | **2048** | 75776 |\n| random | workflow_agent | **698** | 717 | 0.98 | 0.06 | **1536** | 76800 |\n| writing | workflow_agent | **736** | 751 | 0.96 | 0.10 | **2560** | 64512 |\n\n**Scoped recompute gap survives.** Couloir absolute makespan barely moves vs type-keyed (e.g. fan-out 587 vs 586.5); the ~2–3% batch edge is **CPF collapsing** without freeloading (604 / 717 / 751). Type-keyed remains an optimistic upper bound. Mechanism: scoped hits ≈ prefetch (see §3).\n\n### 5.6 Batch weight grid\n\n`batch_weight_grid.csv` (324 rows). Consensus default \\(w=(1,0.25,1.5,0.5,0.25)\\); grid often ties `reuse=0.75` on hit/recompute (±1 s makespan)—do not oversell as the unique optimum.\n\n### 5.7 Aging ablation\n\nNear-zero mean-makespan effect; drop-age can even improve batch fan-out hit/recompute. Kept for starvation-freedom only.\n\n### 5.8 Noise + live\n\nNoise swe",
+      "snippet_hash": "9d0d7af4d513b0043d9b92160c354bf0438dd3e9d7c47b7edb6f0306878116d9"
+    },
+    {
+      "source_id": "S10",
+      "chunk_id": "S10#0003",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "s the unique optimum.\n\n### 5.7 Aging ablation\n\nNear-zero mean-makespan effect; drop-age can even improve batch fan-out hit/recompute. Kept for starvation-freedom only.\n\n### 5.8 Noise + live\n\nNoise sweep: fan-out ranking stable in mean. Live Gemini: smoke only.\n\n### 5.9 Limitations / GPU status\n\nConceptual prefill; synthetic non-writing DAGs. Scoped cache gap survived, so a future engine case study is justified — but **GPU/SGLang is paused** until after mentor direction (Colab/Kaggle free smoke f",
+      "snippet_hash": "9bcf7c2daf8a25c2c4937ea460792aa20857c1c8df7fea476fd5650af27f1bac"
+    },
+    {
+      "source_id": "S11",
+      "chunk_id": "S11#0001",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "irst; ≤US$50 only if still aligned). See [`STATUS.md`](STATUS.md), [`GPU_CLOUD.md`](GPU_CLOUD.md).\n\n---\n\n## 6. Discussion\n\nLead with **joint prefetch under multi-arrival with workflow-scoped keys**. Makespan edge under scoping ≈ CPF losing freeloaded hits. Type-keyed numbers are an optimistic upper bound, not a KV claim.\n\n---\n\n## 7. Conclusion\n\nCouloir unifies compute priority and prefix-cache control. With workflow-scoped prefixes, batch multi-arrival shows large recompute cuts (and modest makespan edges) vs CPF+STE. Softcopy targets arXiv cs.DC + serving workshop; optional SGLang validation is now justified, not mandatory ([`VENUES.md`](VENUES.md)).\n\n---\n\n---\n\n## References\n\n1. H. Topcuoglu, S. Hariri, Min-You Wu. Performance-effective and low-complexity task scheduling for heterogeneous computing. *IEEE TPDS*, 2002.\n2. Pan et al. KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows. arXiv:2507.07400, 2025.\n3. Wu et al. AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. arXiv:2308.08155, 2023.\n4. Pearson et al. Graph-Based Agentic AI with LangGraph. arXiv:2607.19297, 2026.\n\n---\n\n## Appendix A — Pitch (deferred)\n\n> We have a Coul",
+      "snippet_hash": "cb678b2a0c8f274e3c1a674142a24cd667199e76fdf0447e8ebb6ad0e6203697"
+    },
+    {
+      "source_id": "S11",
+      "chunk_id": "S11#0002",
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "snippet": "ications via Multi-Agent Conversation. arXiv:2308.08155, 2023.\n4. Pearson et al. Graph-Based Agentic AI with LangGraph. arXiv:2607.19297, 2026.\n\n---\n\n## Appendix A — Pitch (deferred)\n\n> We have a Couloir sim where joint dispatch+prefetch beats CPF→STE on **recompute under batch multi-arrival** (workflow-scoped prefixes); makespan is ~tied. Looking for a systems/LLM-serving mentor to harden the claim vs KVFlow/TOPAS toward arXiv + workshop.",
+      "snippet_hash": "a2d1b3ecd8efe51a9a881fe897529d323c4d5dd469731ceb2f801b96021ba291"
+    },
+    {
+      "source_id": "S12",
+      "chunk_id": "S12#0001",
+      "title": "docs/PAPER_OUTLINE.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_OUTLINE.md",
+      "snippet": "# Couloir — paper outline\n\n**Working title:** Couloir: Joint Compute and Prefix-Cache Scheduling for Multi-Agent LLM Workflows\n\n**Claim (frozen):** Under shared \\(K,C\\) with workflow-scoped prefixes, joint dispatch+prefetch improves residency/recompute vs CPF→STE under multi-arrival batch; makespan edge is secondary (~2–3%, largely baseline collapse without freeloading).\n\nFull prose: [`PAPER_DRAFT.md`](PAPER_DRAFT.md). Status: [`STATUS.md`](STATUS.md). Venues: [`VENUES.md`](VENUES.md).\n\n## Sections\n\n1. Introduction — drafted  \n2. Related work — drafted (mentor pass later: TOPAS, Continuum, RadixAttention, KVFlow)  \n3. Model — drafted (scoped keys + prefetch mechanism)  \n4. Couloir — drafted  \n5. Evaluation — drafted (sim frozen)  \n6. Discussion — drafted  \n7. Conclusion — drafted  \n8. Engine case study — **paused**  \n\n## Pitch (deferred months; Dr. Zhou first)\n\n> Softcopy + frozen sim: joint claim, honest limits, clear next experiments. Asking for mentorship/co-authorship toward arXiv + workshop. No engine required for that ask.",
+      "snippet_hash": "230fe47f4b55a76ee37dc5752ddfbf44be26afa266184c3c05b03c1809d355a1"
+    },
+    {
+      "source_id": "S13",
+      "chunk_id": "S13#0001",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "# Critical-Agent-Aware Scheduling for Multi-Agent LLM Systems\n## Initial Profiling Report\n\n---\n\n## 1. Introduction and Motivation\n\nMulti-agent LLM systems divide complex tasks among specialized agents. End-to-end latency is often dominated by a small set of *critical agents* on the longest dependency path, rather than by all agents equally.\n\nThis report presents an initial empirical study that:\n\n1. Builds a multi-agent workflow in LangGraph\n2. Collects per-agent execution traces\n3. Computes critical paths over the agent dependency graph\n4. Checks whether some agents consistently contribute disproportionately to end-to-end latency\n\nThis addresses supervisor feedback to validate the motivation empirically before designing a new scheduling policy.\n\n---\n\n## 2. Research Question\n\n> Do multi-agent LLM workflows show stable and meaningful differences in agent criticality across repeated executions?\n\nIf yes, critical-agent-aware scheduling is justified.\n\n---\n\n## 3. System Design\n\n### 3.1 Workflow Structure\n\nThe prototype uses a fixed DAG-style LangGraph workflow with both sequential and parallel stages:\n\n```text\nSTART\n  → planner\n  → researcher_a / researcher_b / researcher_c   (parallel)",
+      "snippet_hash": "8940a7d2cd60cef97654303cfaa5b4d89db32e71445368189b31d45c484b83fc"
+    },
+    {
+      "source_id": "S13",
+      "chunk_id": "S13#0002",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "low Structure\n\nThe prototype uses a fixed DAG-style LangGraph workflow with both sequential and parallel stages:\n\n```text\nSTART\n  → planner\n  → researcher_a / researcher_b / researcher_c   (parallel)\n  → synthesizer   (join: waits for all researchers)\n  → critic\n  → final_writer\n  → END\n```\n\n**Figure 1.** Workflow dependency graph. Red nodes/edges mark the most common critical path from LLM runs.\n\n![Workflow dependency graph](llm/workflow_graph_llm.png)\n\n### 3.2 Instrumentation\n\nEach agent call records:\n\n- agent name\n- parent dependencies\n- start/end timestamps\n- runtime (seconds)\n- input/output tokens (LLM runs)\n\nTraces are stored in JSONL format and analyzed offline.\n\n### 3.3 Critical-Path Method\n\nAgents are modeled as a weighted DAG. Node weight = measured runtime. The critical path is the longest path from start to end:\n\n- Compute earliest finish times in topological order\n- Backtrack parent pointers to recover the critical path\n- Aggregate critical-path frequency across runs\n\nWaiting time is also measured as:\n\n```text\nwaiting_time = max(0, actual_start - max(parent_end_times))\n```\n\n---\n\n## 4. Experimental Setup\n\n### 4.1 Simulated Baseline\n\n| Item | Value |\n|---|---|\n| Framewor",
+      "snippet_hash": "247a51431dd98696c701d21f3913421533b66ecf2a1aeea16c93c8ef3da71405"
+    },
+    {
+      "source_id": "S13",
+      "chunk_id": "S13#0003",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "ing time is also measured as:\n\n```text\nwaiting_time = max(0, actual_start - max(parent_end_times))\n```\n\n---\n\n## 4. Experimental Setup\n\n### 4.1 Simulated Baseline\n\n| Item | Value |\n|---|---|\n| Framework | LangGraph |\n| Agents | Simulated with `time.sleep()` |\n| Runs | 20 |\n| Purpose | Validate tracing and critical-path code |\n\n`researcher_b` was intentionally slower to test whether critical-path detection works.\n\n### 4.2 Real LLM Experiment\n\n| Item | Value |\n|---|---|\n| Framework | LangGraph |\n|",
+      "snippet_hash": "5b3817c0d7a169d964776d04dd244e2a4519013d60cbbc7a57ed1619c0088f74"
+    },
+    {
+      "source_id": "S14",
+      "chunk_id": "S14#0001",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "Model | `openai/gpt-oss-20b:free` via OpenRouter |\n| Runs | 5 |\n| Tasks | KV caching; LangGraph vs AutoGen; DAG scheduling; critical path analysis; HEFT |\n\nPrompt asymmetry: Researcher B was given a heavier analysis prompt (longer expected output) than A/C, reflecting realistic uneven agent workloads.\n\n---\n\n## 5. Results\n\n### 5.1 Simulated Results (20 runs)\n\nAverage end-to-end critical-path latency: **~6.66s**\n\n| Agent | Avg runtime (s) | Critical-path frequency |\n|---|---:|---:|\n| planner | 0.77 | 100% |\n| researcher_b | 3.08 | 100% |\n| synthesizer | 0.88 | 100% |\n| critic | 0.97 | 100% |\n| final_writer | 0.96 | 100% |\n| researcher_a | 1.52 | 0% |\n| researcher_c | 1.60 | 0% |\n\nWaiting times were negligible (~0.001–0.004s).  \nCritical path was always:\n\n```text\nplanner → researcher_b → synthesizer → critic → final_writer\n```\n\n### 5.2 Real LLM Results (5 runs)\n\nAverage end-to-end critical-path latency: **~119.3s**\n\n| Agent | Avg runtime (s) | Avg waiting (s) | Critical-path frequency |\n|---|---:|---:|---:|\n| researcher_b | 41.47 | 0.008 | **80%** |\n| synthesizer | 21.49 | 0.001 | 100% |\n| planner | 21.40 | 0.000 | 100% |\n| final_writer | 20.78 | 0.001 | 100% |\n| researcher_c | 19.72",
+      "snippet_hash": "03354ccfe6e216d32b33dc63a296bd73a495ebe172a7c6bdac63861f5d2ea208"
+    },
+    {
+      "source_id": "S14",
+      "chunk_id": "S14#0002",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "---|---:|---:|---:|\n| researcher_b | 41.47 | 0.008 | **80%** |\n| synthesizer | 21.49 | 0.001 | 100% |\n| planner | 21.40 | 0.000 | 100% |\n| final_writer | 20.78 | 0.001 | 100% |\n| researcher_c | 19.72 | 0.012 | 20% |\n| critic | 13.61 | 0.001 | 100% |\n| researcher_a | 10.85 | 0.003 | **0%** |\n\n**Figure 2.** Average agent runtime (LLM).\n\n![Average runtime](llm/avg_runtime.png)\n\n**Figure 3.** Critical-path frequency (LLM).\n\n![Critical-path frequency](llm/critical_path_freq.png)\n\nMost common critical path (4/5 runs):\n\n```text\nplanner → researcher_b → synthesizer → critic → final_writer\n```\n\nOne run used `researcher_c` instead of `researcher_b` on the parallel stage.\n\n### 5.3 Comparison\n\n| Aspect | Simulated | Real LLM |\n|---|---|---|\n| End-to-end latency | ~6.7s | ~119s |\n| Parallel bottleneck | researcher_b (100%) | researcher_b (80%) |\n| Waiting time | negligible | negligible |\n| Runtime variance | low | high (e.g., one B run ~95s) |\n\n---\n\n## 6. Discussion\n\n### 6.1 Answer to the Research Question\n\n**Yes.** Across LLM runs, agent criticality is uneven and fairly stable:\n\n- Among parallel researchers, B dominates end-to-end latency\n- Speeding up A would rarely reduce total latency\n- Spe",
+      "snippet_hash": "a2623165eba251a3fe91dd2a6d9125a2eb8ff4cc00bc428af4172a51a5b10708"
+    },
+    {
+      "source_id": "S14",
+      "chunk_id": "S14#0003",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "Question\n\n**Yes.** Across LLM runs, agent criticality is uneven and fairly stable:\n\n- Among parallel researchers, B dominates end-to-end latency\n- Speeding up A would rarely reduce total latency\n- Speeding up B would usually reduce total latency\n- Sequential agents (planner, synthesizer, critic, writer) are always on the critical path by structure\n\nWaiting time is not the bottleneck in this prototype; **execution time of critical agents** is.\n\n### 6.2 Implications for Scheduling\n\nThese results s",
+      "snippet_hash": "6625d7d50902ddc1b8d88111a35d0477fc06ace76c11fd7a9e12bae9aa947f77"
+    },
+    {
+      "source_id": "S15",
+      "chunk_id": "S15#0001",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "upport studying priority-aware scheduling policies such as:\n\n- critical-path-first\n- slack-based prioritization\n- HEFT-style upward rank\n\nwhen multiple agent calls compete for limited compute.\n\n### 6.3 Limitations\n\n- Small LLM sample size (5 runs) due to free-tier rate limits\n- Single workflow topology\n- Single model (`gpt-oss-20b:free`)\n- Researcher B’s heavier prompt biases criticality (intentional but should be ablated later)\n- No true multi-tenant GPU/API contention yet; waiting times are near zero\n\n---\n\n## 7. Conclusion\n\nThis profiling study shows that multi-agent LLM workflows can exhibit clear critical-agent structure. In both simulated and real LLM experiments, one parallel researcher disproportionately determined end-to-end latency, while faster parallel peers rarely appeared on the critical path.\n\nThe prototype (LangGraph + tracing + critical-path analysis) is sufficient to motivate the next stage: designing and evaluating critical-agent-aware scheduling. A separate conceptual reproduction of KVFlow (§9) shows that structural STE is useful for **prefix-cache** retention/prefetch but is not a substitute for latency-weighted criticality when deciding **compute** priority.",
+      "snippet_hash": "fb85118db8476a0635f4a8db87c21d0af65f33cd29ec98b3289ce0c4becbbe36"
+    },
+    {
+      "source_id": "S15",
+      "chunk_id": "S15#0002",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "l reproduction of KVFlow (§9) shows that structural STE is useful for **prefix-cache** retention/prefetch but is not a substitute for latency-weighted criticality when deciding **compute** priority.\n\n---\n\n## 8. Next Steps\n\n1. Increase LLM runs for more stable statistics\n2. Ablate prompt asymmetry (equal prompts for A/B/C)\n3. Implement priority-aware ready-queue scheduling\n4. Compare FIFO vs critical-path-first / HEFT-style policies\n5. Evaluate under concurrent workflows / limited parallelism\n6. Optionally combine critical-path **compute** priority with STE-based **cache** retention in a joint scheduler\n\n---\n\n## 9. KVFlow Conceptual Reproduction (Layers 1–2)\n\nPackage [`kvflow/`](../kvflow/) is a pure-Python conceptual reproduction of Pan et al. (KVFlow,\narXiv:2507.07400): Agent Step Graph + workflow-aware prefix-cache policies. It does **not**\nrun SGLang or real KV tensors.\n\n**Relation to this project:** profiling above motivates scheduling by **compute criticality**\n(who runs when under limited parallelism). KVFlow’s STE motivates **cache lifetime** (which\nprefixes to keep / prefetch). Same research/writing DAG topology; different control knob.\n\n### 9.1 Layer 1 — Steps-to-execution",
+      "snippet_hash": "532f50e3eb8ca83c1c0f61d0c6b4218f27cbcc838cadd0ecc699cb261bf5f398"
+    },
+    {
+      "source_id": "S15",
+      "chunk_id": "S15#0003",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "r limited parallelism). KVFlow’s STE motivates **cache lifetime** (which\nprefixes to keep / prefetch). Same research/writing DAG topology; different control knob.\n\n### 9.1 Layer 1 — Steps-to-execution vs critical path\n\nSTE is computed from topology only (planner active at workflow start): active agents get 0;\ndownstream STE is `agg(pred STEs) + 1` with `max` AND-joins / `min` OR-branches.\n\nCompared against **critical-path frequency** from 20 simulated runs (`simulated/traces.jsonl`):\nfraction of",
+      "snippet_hash": "5d8b4df894fdb69b1ba947ddac290d8a8e2405c1cb2b6280b32c54067256765e"
+    },
+    {
+      "source_id": "S16",
+      "chunk_id": "S16#0001",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "runs where each agent lies on the runtime-weighted longest path.\n\n| Agent | Avg runtime (s) | Critical-path freq | STE |\n|---|---:|---:|---:|\n| planner | 0.77 | 1.0 | 0 |\n| researcher_a | 1.52 | 0.0 | 1 |\n| researcher_b | 3.08 | 1.0 | 1 |\n| researcher_c | 1.60 | 0.0 | 1 |\n| synthesizer | 0.88 | 1.0 | 2 |\n| critic | 0.97 | 1.0 | 3 |\n| final_writer | 0.96 | 1.0 | 4 |\n\n**Figure (Layer 1).** STE vs critical-path frequency:\n\n![STE vs critical-path frequency](../kvflow/results/ste_vs_critical_path.png)\n\n**Finding:** All three researchers share STE = 1 (same structural depth), but only\n`researcher_b` is always critical because it is much slower. STE alone cannot replace\nlatency-weighted critical-path analysis for **compute** prioritization.\n\n### 9.2 Layer 2 — Prefix-cache policy simulation\n\nSynthetic sequential chain of 10 agents (paper-like microbench; `--graph research` also\nsupported). Tight GPU capacity ≈ shared root + two fixed leaves + one dynamic suffix.\nPolicies: **LRU**, **STE** eviction (evict highest STE / dynamics first), **STE+prefetch**\n(overlap next-agent fixed-prefix load with decode). Hit = fixed leaf already on GPU or\nloading. Timings use fixed token/bandwidth constants",
+      "snippet_hash": "68f654b2ef8fad1b996feee0fd8cd57deebb2c7562d54f81691417b69eedc383"
+    },
+    {
+      "source_id": "S16",
+      "chunk_id": "S16#0002",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "tion (evict highest STE / dynamics first), **STE+prefetch**\n(overlap next-agent fixed-prefix load with decode). Hit = fixed leaf already on GPU or\nloading. Timings use fixed token/bandwidth constants in `kvflow/cache_sim.py` (reproducible,\nnot hardware-parity).\n\n| Setting | Policy | Avg latency (s) | Hit rate | Stall (s) | Evictions |\n|---|---|---:|---:|---:|---:|\n| small | lru | 8.14 | 0.00 | 0.82 | 120 |\n| small | ste | 8.12 | 0.10 | 0.74 | 114 |\n| small | ste+prefetch | 8.02 | 0.90 | 0.12 | 120 |\n| medium | lru | 16.53 | 0.00 | 3.17 | 120 |\n| medium | ste | 16.48 | 0.10 | 2.86 | 114 |\n| medium | ste+prefetch | 16.07 | 0.90 | 0.40 | 120 |\n| large | lru | 34.06 | 0.00 | 12.34 | 120 |\n| large | ste | 33.85 | 0.10 | 11.11 | 114 |\n| large | ste+prefetch | 32.21 | 0.90 | 1.28 | 120 |\n\n**Figure (Layer 2).** Policy comparison across settings:\n\n![KVFlow cache policy comparison](../kvflow/results/cache_policy_comparison.png)\n\n**Findings:**\n\n- STE slightly beats LRU on hit rate and stall (keeps nearer-future prefixes under pressure).\n- STE+prefetch is the clear win: ~90% hit rate and much lower stall, especially at `large`\n  fixed prompts, by loading the next agent while the current one de",
+      "snippet_hash": "523623ade3179723f5b71868f77262ecb70b5ab9411d58475fa1a386b7e6a0fc"
+    },
+    {
+      "source_id": "S16",
+      "chunk_id": "S16#0003",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "s nearer-future prefixes under pressure).\n- STE+prefetch is the clear win: ~90% hit rate and much lower stall, especially at `large`\n  fixed prompts, by loading the next agent while the current one decodes.\n- Eviction counts stay similar (~114–120); policies mainly change *which* entries survive.\n\n### 9.3 How to reproduce\n\n```bash\n# No spaces after commas in --configs\npython -m kvflow.compare_criticality --traces simulated/traces.jsonl\npython -m kvflow.experiment --configs lru,ste,ste+prefetch",
+      "snippet_hash": "0715a887a7d95d36ce7c250456161598f6cb5014587b509339534146c0ce4508"
+    },
+    {
+      "source_id": "S17",
+      "chunk_id": "S17#0001",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "--out kvflow/results\npython -m unittest discover -s kvflow/tests -v\n```\n\nDetails: [`kvflow/README.md`](../kvflow/README.md). Artifacts: `kvflow/results/`.\n\n### 9.4 Takeaway for scheduling design\n\n| Knob | Signal | Goal |\n|---|---|---|\n| This project | Critical-path / slack (latency-weighted) | Prioritize scarce **compute** |\n| KVFlow (here) | STE (+ prefetch) | Retain / prefetch **KV prefixes** |\n\nA full system could use both: schedule critical agents first, and keep/prefetch prefixes for\nagents that are structurally imminent (low STE).\n\n---\n\n## Appendix A. Repository Layout\n\n```text\ncritical agent scheduling/\n  simulated/     # sleep-based agents, traces, summary\n  llm/           # OpenRouter LLM agents, traces, plots\n  kvflow/        # KVFlow STE + prefix-cache conceptual sim\n  requirements.txt\n  env.example\n  REPORT.md\n```\n\n## Appendix B. How to Reproduce\n\n```bash\npython -m venv .venv\nsource .venv/Scripts/activate   # Windows Git Bash\npip install -r requirements.txt\ncp env.example .env             # add OPENROUTER_API_KEY\n\ncd simulated\npython workflow.py\npython analyze.py\n\ncd ../llm\npython workflow_llm.py\npython analyze_llm.py\n\n# KVFlow Layers 1–2 (conceptual)\ncd ..\npython -m kv",
+      "snippet_hash": "c44f3ad2bf20613d47224fd54a1280ab24074f48313f0141b6ba9695f97fdce4"
+    },
+    {
+      "source_id": "S17",
+      "chunk_id": "S17#0002",
+      "title": "docs/REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPORT.md",
+      "snippet": "env             # add OPENROUTER_API_KEY\n\ncd simulated\npython workflow.py\npython analyze.py\n\ncd ../llm\npython workflow_llm.py\npython analyze_llm.py\n\n# KVFlow Layers 1–2 (conceptual)\ncd ..\npython -m kvflow.compare_criticality --traces simulated/traces.jsonl\npython -m kvflow.experiment --configs lru,ste,ste+prefetch --out kvflow/results\n```\n\n## Appendix C. Key References\n\n- Pan et al. 2025. *KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows.* arXiv:2507.07400.\n- Pearson et al. 2026. *Graph-Based Agentic AI with LangGraph: Workflow Pathways for Long-Running Stateful Business Processes.* [arXiv:2607.19297](https://arxiv.org/abs/2607.19297).\n- H. Topcuoglu, S. Hariri and Min-You Wu, \"Performance-effective and low-complexity task scheduling for heterogeneous computing,\" in IEEE Transactions on Parallel and Distributed Systems, vol. 13, no. 3, pp. 260-274, March 2002, doi: 10.1109/71.993206.\n- Wu, Q., Bansal, G., Zhang, J., Wu, Y., Li, B., Zhu, E., ... & Wang, C. (2023). AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. arXiv preprint arXiv:2308.08155.",
+      "snippet_hash": "2d09a0211a411229b0471d22d3b1b9e7b0d4cbf8f4c52798519d56250093a835"
+    },
+    {
+      "source_id": "S18",
+      "chunk_id": "S18#0001",
+      "title": "docs/REPRODUCIBILITY.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPRODUCIBILITY.md",
+      "snippet": "# Reproducibility\n\n**Sim is frozen** ([`STATUS.md`](STATUS.md)). Regenerate only to verify artifacts, not to iterate the claim.\n\n## Regen frozen artifacts\n\n```bash\npython -m unittest discover -s scheduler/tests -v\npython -m scheduler.couloir_sweep --all-dags --with-ablations\npython -m scheduler.weight_ablation\npython -m scheduler.batch_couloir\npython -m scheduler.cache_scope_sensitivity\npython -m scheduler.batch_weight_grid\npython -m scheduler.plot_couloir\n```\n\nDefault engine cache keying: **`workflow_agent`** (no cross-WF type sharing).\n\nOutputs under `scheduler/results/couloir_sweeps/`:\n\n| File | Contents |\n|------|----------|\n| `couloir_baseline_matrix.csv` | \\(K\\times C\\) × policies × DAGs |\n| `cache_scope_sensitivity.csv` | type-keyed vs workflow-scoped batch |\n| `batch_weight_grid.csv` | Batch weight grid |\n| `weight_*` / `batch_*` / `random_solo_*` | Ablations |\n| `*_manifest.json` | git SHA + config snapshot |\n| `figures/` | PNG/PDF + CSV tables |\n\nLegacy contention/noise plots: `python -m scheduler.experiment --out scheduler/results`.\n\n## Seeds\n\n- Noise sweep: base seed `42`; trial seed `42 + trial*1000 + int(noise*100)`.\n- Deterministic Couloir scores (no RNG in utility).",
+      "snippet_hash": "d11322c160ada0b99ba45ddc7eb4a2188847461704535f7ed4045a0428e023f9"
+    },
+    {
+      "source_id": "S18",
+      "chunk_id": "S18#0002",
+      "title": "docs/REPRODUCIBILITY.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/REPRODUCIBILITY.md",
+      "snippet": ": `python -m scheduler.experiment --out scheduler/results`.\n\n## Seeds\n\n- Noise sweep: base seed `42`; trial seed `42 + trial*1000 + int(noise*100)`.\n- Deterministic Couloir scores (no RNG in utility).\n\n## Live smoke (optional, not paper-primary)\n\n```bash\ncp env.example .env   # GEMINI_API_KEY\npython -m scheduler.live_runner --backend gemini --runs 2 --workers 2\n```\n\nSee [`LIVE_BACKEND.md`](LIVE_BACKEND.md).",
+      "snippet_hash": "a8583fe191c68c81a5145a38b5dd0edfeed81e8d559b889b02bdeb711bac1c55"
+    },
+    {
+      "source_id": "S19",
+      "chunk_id": "S19#0001",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "# Critical-Agent-Aware Scheduling for Multi-Agent LLM Systems\n## Policy Evaluation Under Resource Contention\n\n---\n\n## 1. Executive Summary\n\nFollowing initial empirical profiling showing that asymmetric agent workloads cause distinct critical paths (where `researcher_b` dominates execution latency), this report implements and evaluates four core scheduling policies:\n\n1. **FIFO / FCFS (Baseline):** Dispatch tasks in first-come-first-served arrival order.\n2. **Critical-Path-First (CPF):** Prioritize tasks with the longest remaining path length to the workflow sink.\n3. **Least-Slack-First (LSF / Slack):** Prioritize tasks with the minimum dynamic slack before workflow deadline violations.\n4. **Simplified HEFT (Upward Rank):** Dispatch tasks according to classical Heterogeneous Earliest Finish Time upward rank:\n   `rank_u(i) = w_i + max_{j in succ(i)} rank_u(j)`\n\n### Key Findings\n- **Contention is the decisive factor:** Under unconstrained concurrency (K >= 3 worker slots), all policies achieve identical makespan (118.75s). Under resource contention (K < 3 slots or batch queues), policy decisions directly govern makespan.\n- **Critical-Path and HEFT eliminate join stall:** Under K = 2 wo",
+      "snippet_hash": "f381c95ca8ff758e435f7882c95b5580276bcd106586259b3cc193ad57a3804f"
+    },
+    {
+      "source_id": "S19",
+      "chunk_id": "S19#0002",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "ieve identical makespan (118.75s). Under resource contention (K < 3 slots or batch queues), policy decisions directly govern makespan.\n- **Critical-Path and HEFT eliminate join stall:** Under K = 2 worker slots, prioritizing the critical researcher (`researcher_b`, 41.47s) over shorter peers (`researcher_a`, 10.85s) achieves the theoretical optimal critical-path makespan of **118.75s**, whereas an anti-critical FIFO order degrades makespan to **129.60s** (+9.1% latency penalty).\n- **Multi-tenant queue resilience:** In heavy batch workloads (M = 20 concurrent workflows under K = 4 slots), CPF and HEFT reduce critical agent waiting time from **208.03s** (FIFO) down to **125.74s** (-39.6%), allowing non-critical agents to absorb waiting slack without stalling downstream joins.\n- **Live validation under contention:** Live Groq execution (`openai/gpt-oss-20b`) exercises the same DAG and K = 2 researcher fan-out. Absolute makespans differ from the mean-based simulator (different backend and wall-clock variance); see §4.5 for per-task outcomes rather than a claim of universal CPF superiority.\n\n---\n\n## 2. Policy Definitions and Mathematical Formulation\n\nConsider a workflow DAG G = (V, E),",
+      "snippet_hash": "afe66232e544f788c6f6ab3c6d0b65e7a32a971b8a522464136122647cd5d8b3"
+    },
+    {
+      "source_id": "S19",
+      "chunk_id": "S19#0003",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "wall-clock variance); see §4.5 for per-task outcomes rather than a claim of universal CPF superiority.\n\n---\n\n## 2. Policy Definitions and Mathematical Formulation\n\nConsider a workflow DAG G = (V, E), where each task v_i in V has expected execution duration w_i:\n\n```text\nplanner (21.40s)\n  |-- researcher_a (10.85s) --+\n  |-- researcher_b (41.47s) --+--> synthesizer (21.49s) --> critic (13.61s) --> final_writer (20.78s)\n  |-- researcher_c (19.72s) --+\n```\n\n### 2.1 FIFO / FCFS\nDispatches ready task",
+      "snippet_hash": "443265edbf738f7e703f120a80d91c430c8f9adc606c66e220a0f2d9c17626d4"
+    },
+    {
+      "source_id": "S20",
+      "chunk_id": "S20#0001",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "s strictly ordered by their ready timestamp:\n- Priority_FIFO(i) = -t_ready(i)\n\n### 2.2 Critical-Path-First (CPF)\nPrioritizes tasks by their remaining downstream critical path length to workflow completion:\n- Priority_CPF(i) = w_i + max_{j in succ(i)} Path_down(j)\n- Tasks on the bottleneck path execute first so that downstream join nodes (`synthesizer`) can begin as early as possible.\n\n### 2.3 Least-Slack-First (LSF / Slack-Based)\nFor a workflow with deadline T_deadline (unconstrained critical path length):\n- Slack(i, t) = T_deadline - (current_time + Path_down(i))\n- Priority_Slack(i) = -Slack(i, t)\n- Tasks with minimum slack receive top execution priority to avoid missing downstream joins.\n\n### 2.4 Simplified HEFT (Heterogeneous Earliest Finish Time)\nComputes upward rank rank_u(i) recursively from the exit node:\n- rank_u(i) = w_i + max_{j in succ(i)} rank_u(j)\n- Tasks are sorted in descending order of rank_u and scheduled to the earliest-available worker slot.\n\n---\n\n## 3. Experimental Setup\n\nThe evaluation framework has two complementary components: a **discrete-event simulator** driven by profiling means, and a **live Groq runner** that enforces the same worker-slot limit on real",
+      "snippet_hash": "6cc48166545f3857230086c3b8bbc4ae4612fa47ffd5ef91545f081bda8b34f8"
+    },
+    {
+      "source_id": "S20",
+      "chunk_id": "S20#0002",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "Setup\n\nThe evaluation framework has two complementary components: a **discrete-event simulator** driven by profiling means, and a **live Groq runner** that enforces the same worker-slot limit on real LLM calls.\n\n### 3.1 Simulator Architecture\n\nImplementation: `scheduler/engine.py` (`SimulationEngine`, `WorkerPool`).\n\nThe simulator is a classic discrete-event engine over a multi-agent DAG:\n\n1. **Workflow arrival** (`WORKFLOW_ARRIVAL`): source tasks (no predecessors) enter the ready queue.\n2. **Dispatch:** if idle workers exist, the configured **policy** reorders the ready queue; tasks are assigned front-to-back to idle slots.\n3. **Task start:** assignment sets `start_time = now` and `finish_time = now + actual_duration`, and schedules a `TASK_COMPLETE` event.\n4. **Task completion:** the worker is released; each successor’s unmet-predecessor count is decremented; newly unlocked tasks become ready; dispatch runs again.\n\n**How scheduling decisions are enforced.** Policies never execute agents and never call an LLM. They only **order who receives the next idle worker slot**. Resource contention is modeled solely by a fixed pool of **K** homogeneous workers. When more tasks are ready tha",
+      "snippet_hash": "91c3f8ab4fe2100fdbe31192019ebd6daac7ba9955bf06077d69aa1005785c53"
+    },
+    {
+      "source_id": "S20",
+      "chunk_id": "S20#0003",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "nts and never call an LLM. They only **order who receives the next idle worker slot**. Resource contention is modeled solely by a fixed pool of **K** homogeneous workers. When more tasks are ready than idle slots (e.g. three researchers with K = 2), the policy order determines which agents run immediately and which wait—directly affecting join time at `synthesizer` and end-to-end makespan.\n\n```text\nWORKFLOW_ARRIVAL / TASK_COMPLETE\n        │\n        ▼\n  unlock ready tasks ──► ready queue ──► poli",
+      "snippet_hash": "8b32cb4418880053fc49e85008a477292ee3988b97f19a34153a7035949cc9fa"
+    },
+    {
+      "source_id": "S21",
+      "chunk_id": "S21#0001",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "cy reorder ──► assign to idle WorkerPool slots\n                                                                    │\n                                                                    ▼\n                                                         TASK_COMPLETE @ now + actual_duration\n```\n\nMetrics (`scheduler/metrics.py`) include makespan, critical-path delay vs unconstrained CP length, waiting times, and worker utilization.\n\n### 3.2 Workload and Duration Model (Profiling → Simulator)\n\nThe simulated workflow matches the profiling DAG in `docs/REPORT.md` / `llm/`:\n\n```text\nplanner → {researcher_a, researcher_b, researcher_c} → synthesizer → critic → final_writer\n```\n\n**Profiling source (OpenRouter LLM runs):**\n\n| Item | Value |\n|---|---|\n| Workflow | LangGraph research-writing DAG (`llm/workflow_llm.py`) |\n| Model | `openai/gpt-oss-20b:free` via OpenRouter |\n| Runs | 5 full workflow executions |\n| Summary artifact | `llm/profiling_summary_llm.csv` (`agent`, `avg_runtime_s`, …) |\n| Asymmetry | `researcher_b` uses a heavier prompt / longer generation; dominates critical-path frequency |\n\n**How durations enter the simulator (mean-based, not per-run trace replay):**\n\n1. Offline analysis (`l",
+      "snippet_hash": "3013296e79f1338f8564b5af7a5cf1c7822d622828e93877f15e79ba1889ca1e"
+    },
+    {
+      "source_id": "S21",
+      "chunk_id": "S21#0002",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "| `researcher_b` uses a heavier prompt / longer generation; dominates critical-path frequency |\n\n**How durations enter the simulator (mean-based, not per-run trace replay):**\n\n1. Offline analysis (`llm/analyze_llm.py`) writes per-agent **average** runtimes to `llm/profiling_summary_llm.csv`.\n2. `scheduler/dag.py` loads those means via `load_profile_means()` into `LLM_PROFILE_MEANS` (rounded to 2 decimal places from `llm/profiling_summary_llm.csv`).\n3. `create_research_writing_workflow(profile=\"llm\")` sets each task’s `expected_duration` to the profile mean.\n4. `actual_duration` equals the mean when `duration_noise_std = 0`; otherwise `actual ~ max(0.05, N(μ, μ · σ))` while **ranking still uses expected means**.\n\nThe simulator therefore evaluates scheduling under **agent-level mean service times** derived from profiling, optionally with independent Gaussian noise for robustness sweeps. It does **not** replay individual JSONL traces task-by-task.\n\nMean durations used throughout §4 (seconds):\n\n| Agent | Mean w_i |\n|---|---:|\n| planner | 21.40 |\n| researcher_a | 10.85 |\n| researcher_b | 41.47 |\n| researcher_c | 19.72 |\n| synthesizer | 21.49 |\n| critic | 13.61 |\n| final_writer | 20.78",
+      "snippet_hash": "16a506fd2af8d8687f9d594213bed43e9fb59b7d62405adf33f1d699254142fa"
+    },
+    {
+      "source_id": "S21",
+      "chunk_id": "S21#0003",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "nds):\n\n| Agent | Mean w_i |\n|---|---:|\n| planner | 21.40 |\n| researcher_a | 10.85 |\n| researcher_b | 41.47 |\n| researcher_c | 19.72 |\n| synthesizer | 21.49 |\n| critic | 13.61 |\n| final_writer | 20.78 |\n\n### 3.3 Simulation Experiment Matrix\n\nDriver: `scheduler/experiment.py`.\n\n| Experiment | Parameters | Artifact |\n|---|---|---|\n| Single-workflow worker sweep | K ∈ {1, 2, 3, 4}; all four policies | `single_workflow_sweep.csv` |\n| Arrival-order contention | K = 2; CPF / HEFT / Slack vs natural FIF",
+      "snippet_hash": "32067eae9060f1f85db9a1c6e14f95ccb05a34256fd9e603513c1db81760785a"
+    },
+    {
+      "source_id": "S22",
+      "chunk_id": "S22#0001",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "O vs anti-critical FIFO (A, C, then B) | `arrival_order_contention.csv` |\n| Multi-tenant batch | M ∈ {1, 2, 5, 10, 20} concurrent workflows; K = 4 | `batch_workflow_sweep.csv` |\n| Stochastic robustness | noise σ ∈ {0.0, 0.1, 0.25, 0.5} × mean; N = 30 trials; K = 2 | `stochastic_robustness.csv` |\n\nPlots: `scheduler/results/scheduling_comparison_plots.png`.\n\n### 3.4 Live Validation Setup\n\nImplementation: `scheduler/live_runner.py`.\n\n| Detail | Configuration |\n|---|---|\n| API | Groq OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`) |\n| Model | `openai/gpt-oss-20b` |\n| Concurrency | `ThreadPoolExecutor(max_workers=K)`, default **K = 2** |\n| Policies compared | **CPF vs FIFO** only (Slack/HEFT not run live; on this homogeneous DAG they match CPF in simulation) |\n| Policy scope | Ordering applied at the **researcher fan-out** (main contention point); planner / synthesizer / critic / writer run sequentially after dependencies clear |\n| Call style | Non-streaming `chat.completions.create` |\n| Temperature | 0.2 |\n| Workload asymmetry | Researcher B: deeper prompt, ≤250 words; A/C: ≤100 words |\n| Variability handling | Fixed temperature; 4s pause between policy runs; exponential",
+      "snippet_hash": "fd9ec28bcfe7e4deba26b0329015bbd24808a5b52fea22e95beb8a9fe1e4fbd1"
+    },
+    {
+      "source_id": "S22",
+      "chunk_id": "S22#0002",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "create` |\n| Temperature | 0.2 |\n| Workload asymmetry | Researcher B: deeper prompt, ≤250 words; A/C: ≤100 words |\n| Variability handling | Fixed temperature; 4s pause between policy runs; exponential backoff on rate limits (up to 5 retries) |\n| Runs | 5 task prompts × 2 policies at K = 2 (see §4.5) |\n\n**Relation to the simulator.** Live uses the same DAG shape and the same K-slot contention idea, but wall-clock times come from Groq generation latency—not from OpenRouter profile means. Absolute makespans are therefore **not** expected to match the ~118s simulation figures; live validates **dispatch behavior under contention**, not numerical equivalence to the DES.\n\n### 3.5 Assumptions and Limitations\n\n- Workers are **homogeneous**; simplified HEFT is upward-rank priority onto the earliest idle slot (no heterogeneous EFT placement).\n- On this DAG with mean durations, CPF, Slack, and HEFT typically produce the **same researcher order**; the informative contrast is vs FIFO / anti-critical order.\n- Simulation is **mean-based** (optional Gaussian noise), not full per-run trace replay.\n- Live N is modest and wall-clock variance is high; live results should be read as a qualitative/semiqua",
+      "snippet_hash": "0cd4be3934e97f0c1f45c98bb4fb987c3f623867edd8ebabad328d19c057226b"
+    },
+    {
+      "source_id": "S22",
+      "chunk_id": "S22#0003",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "order.\n- Simulation is **mean-based** (optional Gaussian noise), not full per-run trace replay.\n- Live N is modest and wall-clock variance is high; live results should be read as a qualitative/semiquantitative check alongside simulation.\n\n---\n\n## 4. Benchmark Results\n\n### 4.1 Dispatch Order Under K = 2 Contention (Single Workflow)\n\nWhen `planner` finishes at t = 21.40s, researchers A (10.85s), B (41.47s), and C (19.72s) become ready simultaneously, but only K = 2 worker slots are available:\n\n| P",
+      "snippet_hash": "4db2ffd6a79a2af6f741eb0243a1190c155aa730f06d13091cd661ddd366dc1a"
+    },
+    {
+      "source_id": "S23",
+      "chunk_id": "S23#0001",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "olicy | Dispatch Order | Makespan (s) | Critical Path Delay (s) | Slot Utilization (%) |\n|---|---|---:|---:|---:|\n| **Critical-Path-First (CPF)** | B (41.47s), C (19.72s), then A | **118.75** | **0.00** | **62.87%** |\n| **Simplified HEFT** | B (41.47s), C (19.72s), then A | **118.75** | **0.00** | **62.87%** |\n| **Least-Slack-First (LSF)** | B (41.47s), C (19.72s), then A | **118.75** | **0.00** | **62.87%** |\n| **FIFO (Natural A, B, C)** | A, B, then C | 118.75 | 0.00 | 62.87% |\n| **Anti-Critical FIFO** | A (10.85s), C (19.72s), then B | **129.60** | **10.85** | **57.61%** |\n\n**Insight:** Because researcher A (10.85s) and C (19.72s) can run sequentially in 30.57s while researcher B runs for 41.47s on the other slot, prioritizing B ensures the entire research phase completes in max(41.47, 30.57) = 41.47s. Delaying B causes a strict 10.85s stall at the synthesizer join. Natural FIFO (A then B) still starts B early enough to avoid that stall; the penalty appears under **anti-critical** order.\n\n### 4.2 Single-Workflow Worker Slot Sweep (K = 1, 2, 3, 4)\n\n| Policy | Workers (K) | Makespan (s) | Avg Waiting Time (s) | Worker Utilization (%) |\n|---|---:|---:|---:|---:|\n| All Policies | 1",
+      "snippet_hash": "969d25806eda1cb4d38c82945a604fd65862e6dd29bc3b7bb04200ba456c7ee0"
+    },
+    {
+      "source_id": "S23",
+      "chunk_id": "S23#0002",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "rder.\n\n### 4.2 Single-Workflow Worker Slot Sweep (K = 1, 2, 3, 4)\n\n| Policy | Workers (K) | Makespan (s) | Avg Waiting Time (s) | Worker Utilization (%) |\n|---|---:|---:|---:|---:|\n| All Policies | 1 | 149.32 | 9.02 - 14.67 | 100.0% |\n| CPF / HEFT / LSF | 2 | 118.75 | 2.82 | 62.87% |\n| FIFO (Worst) | 2 | 129.60 | 1.55 | 57.61% |\n| All Policies | 3 | 118.75 | 0.00 | 41.91% |\n| All Policies | 4 | 118.75 | 0.00 | 31.44% |\n\n**Insight:** K = 2 with critical-agent scheduling matches the makespan of K = 3 and K = 4 unconstrained systems while achieving **50% higher worker efficiency** (62.87% vs 41.91%).\n\n### 4.3 Multi-Tenant Batch Scaling (K = 4 Slots)\n\nIn multi-agent service backends, multiple user workflows arrive concurrently and compete for worker slots:\n\n| Batch Size (M) | Policy | Total Makespan (s) | Critical Agent Wait: researcher_b (s) | Non-Critical Wait: researcher_a (s) |\n|---:|---|---:|---:|---:|\n| 2 | FIFO | 129.60 | 5.43 | 0.00 |\n| 2 | CPF / HEFT / LSF | **118.75** | **0.00** | 9.86 |\n| 5 | FIFO | 192.94 | 31.05 | 22.76 |\n| 5 | CPF / HEFT / LSF | **191.85** | **8.29** | 79.54 |\n| 10 | FIFO | 382.59 | 89.25 | 80.73 |\n| 10 | CPF / HEFT / LSF | **382.38** | **46.02** | 176.60",
+      "snippet_hash": "47ed16fb025ebd22bc19994ae0ffda2b6f01605ff34ba56f9ce79666f02ea399"
+    },
+    {
+      "source_id": "S23",
+      "chunk_id": "S23#0003",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "| 9.86 |\n| 5 | FIFO | 192.94 | 31.05 | 22.76 |\n| 5 | CPF / HEFT / LSF | **191.85** | **8.29** | 79.54 |\n| 10 | FIFO | 382.59 | 89.25 | 80.73 |\n| 10 | CPF / HEFT / LSF | **382.38** | **46.02** | 176.60 |\n| 20 | FIFO | 748.37 | 208.03 | 197.83 |\n| 20 | CPF / HEFT / LSF | **746.60** | **125.74** | 370.45 |\n\n**Insight:** Under FIFO, critical agents suffer from head-of-line blocking by non-critical agents. Under CPF/HEFT/Slack, the waiting time for critical agents is reduced by **up to 73% (at M = 5)",
+      "snippet_hash": "c7be6f182fdbd5f95bbafe5bbb13540cbd88df5cc4d73bfe23cc8c548d80490c"
+    },
+    {
+      "source_id": "S24",
+      "chunk_id": "S24#0001",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "** and **40% (at M = 20)**, shifting waiting time entirely onto non-critical slack paths.\n\n### 4.4 Stochastic Robustness (Monte Carlo, N = 30 Trials)\n\nEvaluating policy stability when actual agent execution times deviate from estimates (noise std dev from 0.0 to 0.5 of mean duration):\n\n| Noise Level (Std Dev) | Policy | Mean Makespan (s) | Std Dev (s) | Mean Critical Path Delay (s) |\n|---|---|---:|---:|---:|\n| 0.00 | CPF / HEFT / Slack | 118.75 | 0.00 | 0.00 |\n| 0.10 | CPF / HEFT / Slack | 118.61 | 5.15 | 0.00 |\n| 0.25 | CPF / HEFT / Slack | 124.56 | 13.54 | 1.47 |\n| 0.50 | CPF / HEFT / Slack | 118.17 | 22.37 | 2.25 |\n\n**Insight:** Under modest noise, critical-path delay stays near zero on average; at higher noise, some delay appears as expected when actual runtimes diverge from the means used for ranking. Makespan variance grows with noise, reflecting LLM-like duration uncertainty.\n\n### 4.5 Live Groq Validation (K = 2)\n\nProtocol as in §3.4: 5 prompts × CPF vs FIFO (task 5 repeats the first prompt). Absolute times are wall-clock on Groq and are **not** comparable to the ~118s OpenRouter-mean simulation. Artifact: `scheduler/results/live_groq_comparison.csv`.\n\n| Task | CPF makespan",
+      "snippet_hash": "34f8cdab26703c99a27b0d962373d6e6006da8259f4f9a1f69145c23a5784bed"
+    },
+    {
+      "source_id": "S24",
+      "chunk_id": "S24#0002",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "first prompt). Absolute times are wall-clock on Groq and are **not** comparable to the ~118s OpenRouter-mean simulation. Artifact: `scheduler/results/live_groq_comparison.csv`.\n\n| Task | CPF makespan (s) | FIFO makespan (s) | Winner |\n|---|---:|---:|---|\n| Explain KV caching for multi-agent LLM workflows. | 9.64 | 23.78 | CPF |\n| Compare LangGraph and AutoGen. | 33.13 | 52.16 | CPF |\n| Summarize DAG scheduling methods in distributed systems. | 34.29 | 46.31 | CPF |\n| Describe critical path analysis in parallel workflows. | 36.72 | 53.25 | CPF |\n| Explain KV caching… (repeat) | 37.83 | 40.47 | CPF |\n\n| Policy | Mean makespan (s) | Wins (of 5) |\n|---|---:|---:|\n| CPF | **30.32** | **5** |\n| FIFO | 43.19 | 0 |\n\n**Insight:** Under this live sample, CPF has lower makespan on every prompt (mean ~30% faster than FIFO). Spread across prompts is large (CPF ≈ 9.6–37.8s), so live validates that critical-first dispatch can avoid stalls under real K = 2 contention, without implying numerical agreement with the mean-based simulator. Earlier smaller samples showed more mixed outcomes; wall-clock LLM variance remains high.\n\n---\n\n## 5. Summary Comparison Plots\n\nAll benchmark results are summarized",
+      "snippet_hash": "76cc738d69eec5dfcefe60cfe52444b557b45ed4196294ad5ecd87f7d9cca3fa"
+    },
+    {
+      "source_id": "S24",
+      "chunk_id": "S24#0003",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "ent with the mean-based simulator. Earlier smaller samples showed more mixed outcomes; wall-clock LLM variance remains high.\n\n---\n\n## 5. Summary Comparison Plots\n\nAll benchmark results are summarized in the 4-panel comparison figure:\n\n![Scheduling Comparison Plots](../scheduler/results/scheduling_comparison_plots.png)\n\n1. **Panel 1 (Makespan vs Worker Slots):** Shows the knee at K = 2 where critical scheduling matches unconstrained performance.\n2. **Panel 2 (Dispatch Order at K = 2):** Illustrat",
+      "snippet_hash": "3b78e903014e3e5521c780e3d4a96b6446a7be4be6f60b0f7250445bdf02f77e"
+    },
+    {
+      "source_id": "S25",
+      "chunk_id": "S25#0001",
+      "title": "docs/SCHEDULING_REPORT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/SCHEDULING_REPORT.md",
+      "snippet": "es the 10.85s makespan gap between critical-first and anti-critical dispatch.\n3. **Panel 3 (Batch Scaling):** Linear makespan scaling across high-load concurrent workflows.\n4. **Panel 4 (Noise Robustness):** Confidence intervals under runtime variance.\n\n---\n\n## 6. How to Reproduce\n\nProfiling means consumed by the simulator live in:\n\n- `llm/profiling_summary_llm.csv` (primary LLM profile)\n- `simulated/profiling_summary.csv` (sleep-based profile)\n\n```bash\n# 1. Run unit tests (includes CSV means loader checks)\npython -m unittest discover -s scheduler/tests -v\n\n# 2. Run simulation benchmarks and generate CSVs/plots\npython -m scheduler.experiment --out scheduler/results\n\n# 3. Live Groq validation (requires GROQ_API_KEY in .env)\npython -m scheduler.live_runner --runs 5 --workers 2\n```",
+      "snippet_hash": "13c6f6261700a98eec72b0f514816e002671a6e13ede8e1f487214e6c1eda2f3"
+    },
+    {
+      "source_id": "S26",
+      "chunk_id": "S26#0001",
+      "title": "docs/STATUS.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/STATUS.md",
+      "snippet": "# Project status (freeze)\n\n**Sim track: FROZEN** (2026-11). Do not add weight grids, DAG shapes, or claim retunes unless a mentor asks.\n\n| Track | Status |\n|-------|--------|\n| Discrete-event Couloir sim + softcopy | **Done / frozen** — `docs/PAPER_DRAFT.md` |\n| Live Gemini smoke | Done (supporting only) |\n| Mentor / co-author (Dr. Zhou first) | **Paused ~1–2+ months** — pitch later |\n| arXiv / workshop (`VENUES.md`) | After mentor related-work + author list |\n| GPU / SGLang equal-citizen | **Paused** until mentor direction; then Colab/Kaggle free smoke before any ≤US$50 spend |\n\n## Why freeze\n\nStory is coherent: cache-joint claim, workflow-scoped prefixes, prefetch mechanism, honest limits. Further sim tweaks risk muddying that. Engine design may change after mentor review — avoid sunk cost on paid GPU now.\n\n## What to show a mentor\n\nRepo + softcopy + “joint claim, honest limits, clear next experiments” — asking for mentorship/co-authorship. No engine evidence required for that email.",
+      "snippet_hash": "cc7e59901d80a5defa64c0211ea2efdfde87c43cfac137ca787194b6c68b5b8c"
+    },
+    {
+      "source_id": "S27",
+      "chunk_id": "S27#0001",
+      "title": "docs/VENUES.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/VENUES.md",
+      "snippet": "# Venue plan (arXiv → workshop)\n\n**Preprint:** arXiv **cs.DC** (primary) cross-list **cs.LG** / **cs.OS**. Upload only after mentor softcopy pass. No arXiv ID until submission.\n\n**Timing:** Mentor / co-author ask deferred ~1–2+ months (Dr. Zhou first). Venue pick + CFP deadline are mentor-shaped.\n\n## Workshop shortlist (pick with co-author)\n\n| Venue | Fit | Notes |\n|-------|-----|-------|\n| MLSys Workshop / Affinity | Systems + LLM serving | Strong if engine lands later |\n| EuroSys / SOSP / OSDI workshops | Scheduling + caches | Sharper systems framing |\n| AISys / HotStorage / EdgeSys-class | Cache / KV | Lighter empirical bar |\n| NeurIPS / ICML workshops (serving, agents) | Broader ML | Multi-agent DAG angle |\n\n**Default plan:** softcopy freeze → mentor → arXiv → workshop CFP. Engine/SGLang is optional boost, not a blocker.\n\n## Checklist before arXiv\n\n- [x] Softcopy sections (abstract → conclusion)\n- [x] Regenerable figures + manifests\n- [x] Sim claim frozen (`docs/STATUS.md`)\n- [ ] Author list / affiliation (mentor)\n- [ ] BibTeX polish + related-work pass (TOPAS, Continuum, RadixAttention, KVFlow)\n- [ ] Optional: 1–2 page LaTeX cut for workshop limit",
+      "snippet_hash": "91e4604611ba891ef5c05e4380b57eb7a650c37e0f8f2ba1748931e0f95705fe"
+    },
+    {
+      "source_id": "S28",
+      "chunk_id": "S28#0001",
+      "title": "kvflow/README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/kvflow/README.md",
+      "snippet": "# KVFlow conceptual reproduction (Layers 1–2)\n\nPure-Python stand-in for [KVFlow](https://arxiv.org/abs/2507.07400)’s Agent Step Graph and\nworkflow-aware prefix-cache policies. No SGLang, no real KV tensors.\n\nThis package optimizes **cache lifetime** (what prefixes to keep / prefetch). The rest of\nthis repo profiles **compute priority** (which agent should run when). Same research/writing\nDAG, different control knob.\n\nFor the written discussion (tables, figures, takeaways), see\n[`docs/REPORT.md`](../docs/REPORT.md) §9.\n\n## Layout\n\n| Module | Role |\n|---|---|\n| `step_graph.py` | Agent Step Graph + `steps_to_execution` (STE) |\n| `workflows.py` | Research/writing DAG + OR-branch toy + sequential chain |\n| `compare_criticality.py` | STE vs runtime-weighted critical-path frequency |\n| `cache_sim.py` | Prefix cache simulator (LRU / STE / STE+prefetch) |\n| `experiment.py` | Synthetic workload harness + CSV/plots |\n| `tests/` | Unit tests |\n\n## Run\n\n```bash\n# Layer 1 — STE vs critical path on existing traces\npython -m kvflow.compare_criticality --traces simulated/traces.jsonl\n\n# Layer 2 — cache policy comparison (default: sequential 10-agent chain)\n# Note: no spaces after commas in --config",
+      "snippet_hash": "a8e2f3dab6eff4422539379189fac438dd31227664b8abae999b7dda55ae8ff0"
+    },
+    {
+      "source_id": "S28",
+      "chunk_id": "S28#0002",
+      "title": "kvflow/README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/kvflow/README.md",
+      "snippet": "xisting traces\npython -m kvflow.compare_criticality --traces simulated/traces.jsonl\n\n# Layer 2 — cache policy comparison (default: sequential 10-agent chain)\n# Note: no spaces after commas in --configs\npython -m kvflow.experiment --configs lru,ste,ste+prefetch --out kvflow/results\n\n# Same policies on the research/writing DAG\npython -m kvflow.experiment --graph research --out kvflow/results\n\n# Tests\npython -m unittest discover -s kvflow/tests -v\n```\n\nArtifacts in `kvflow/results/`:\n\n| File | Contents |\n|---|---|\n| `ste_vs_critical_path.csv` / `.png` | Layer 1 table + dual-axis plot |\n| `summary.csv` | Layer 2 metrics per setting × policy |\n| `cache_policy_comparison.png` | Latency, hit rate, stall, evictions |\n\n## Results snapshot (for report)\n\n**Layer 1 (20 simulated runs):** researchers A/B/C all have STE = 1, but only B has\ncritical-path frequency 1.0 (slowest parallel peer). STE ≠ compute criticality.\n\n**Layer 2 (`large`, sequential:10, after warm-up):**\n\n| Policy | Avg latency (s) | Hit rate | Stall (s) |\n|---|---:|---:|---:|\n| lru | 34.06 | 0.00 | 12.34 |\n| ste | 33.85 | 0.10 | 11.11 |\n| ste+prefetch | 32.21 | 0.90 | 1.28 |\n\nFull small/medium/large table: `results/summary.csv`",
+      "snippet_hash": "a7c8b9ac708f27bbe95e55662fbbd6403e8597f1161350b3d0bb237b2d4ba400"
+    },
+    {
+      "source_id": "S28",
+      "chunk_id": "S28#0003",
+      "title": "kvflow/README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/kvflow/README.md",
+      "snippet": "| Hit rate | Stall (s) |\n|---|---:|---:|---:|\n| lru | 34.06 | 0.00 | 12.34 |\n| ste | 33.85 | 0.10 | 11.11 |\n| ste+prefetch | 32.21 | 0.90 | 1.28 |\n\nFull small/medium/large table: `results/summary.csv` or REPORT §9.2.\n\n## Notes\n\n- STE is **structure-only** (how soon an agent runs). Critical-path frequency is\n  **latency-weighted** from measured runtimes — they need not agree.\n- Cache timings use named constants in `cache_sim.py` for reproducibility, not hardware parity.\n- Workload sizes `small` /",
+      "snippet_hash": "4b066a24dedb17c99e7a9f069a2f140ef984e37d26db4da4b0656a5aca336756"
+    },
+    {
+      "source_id": "S29",
+      "chunk_id": "S29#0001",
+      "title": "kvflow/README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/kvflow/README.md",
+      "snippet": "`medium` / `large` use tight capacity (shared + two fixed leaves + one dynamic).\n- Default experiment graph is `sequential:10` (clear STE/prefetch signal). Use `--graph research` for the profiling DAG.",
+      "snippet_hash": "930ba965c4286e1224f6d6cd779dcbccc5b4d60091a2a377a2bda53ad50dbe16"
+    },
+    {
+      "source_id": "S30",
+      "chunk_id": "S30#0001",
+      "title": "scheduler/baselines.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/baselines.py",
+      "snippet": "\"\"\"Paper baselines: compute-only, cache-only wrappers, and two-phase CPF→STE.\n\nTwo-phase (ablation): ready queue ordered by CPF; cache keep/evict by STE\n(steps-to-execution). Couloir replaces both with one utility.\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import Literal\n\nfrom kvflow.step_graph import AgentStepGraph, steps_to_execution\nfrom scheduler.couloir import CacheAction, CacheView, PrefixKeyFn, agent_type_key\nfrom scheduler.dag import Task, WorkflowDAG\n\nCacheMode = Literal[\"none\", \"lru\", \"ste\", \"couloir\"]\n\n\ndef ste_from_workflows(\n    workflows: dict[str, WorkflowDAG],\n    active_agents: list[str],\n) -> dict[str, float]:\n    \"\"\"Aggregate STE across workflows (min STE if agent appears in several).\"\"\"\n    combined: dict[str, float] = {}\n    for wf in workflows.values():\n        agents = sorted({t.agent_type for t in wf.tasks.values()})\n        # Edges in agent-type space (drop workflow_id prefix semantics).\n        type_edges: list[tuple[str, str]] = []\n        for u, v in wf.edges:\n            ua = wf.tasks[u].agent_type\n            va = wf.tasks[v].agent_type\n            if (ua, va) not in type_edges:\n                type_edges.append((ua, va))\n        graph = Age",
+      "snippet_hash": "a4d1fba861e560bee16d97692f5ff58ae4f49d44b353aadd77d3f37f6a9929b2"
+    },
+    {
+      "source_id": "S30",
+      "chunk_id": "S30#0002",
+      "title": "scheduler/baselines.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/baselines.py",
+      "snippet": "in wf.edges:\n            ua = wf.tasks[u].agent_type\n            va = wf.tasks[v].agent_type\n            if (ua, va) not in type_edges:\n                type_edges.append((ua, va))\n        graph = AgentStepGraph(nodes=agents, edges=type_edges)\n        active = [a for a in active_agents if a in agents]\n        if not active:\n            continue\n        ste = steps_to_execution(graph, active)\n        for a, s in ste.items():\n            prev = combined.get(a)\n            combined[a] = float(s) if prev is None else min(prev, float(s))\n    return combined\n\n\ndef plan_ste_cache_actions(\n    selected: Task | None,\n    ready_tasks: list[Task],\n    workflows: dict[str, WorkflowDAG],\n    cache: CacheView,\n    prefetch_top_k: int = 1,\n    key_fn: PrefixKeyFn | None = None,\n) -> CacheAction:\n    \"\"\"STE eviction: prefer evicting agents with largest steps-to-execution.\"\"\"\n    key = key_fn or agent_type_key\n\n    def _type_of(prefix_key: str) -> str:\n        return prefix_key.split(\":\", 1)[-1]\n\n    # Active set = ready/selected only (not residents); residents get STE vs that frontier.\n    active = [t.agent_type for t in ready_tasks]\n    if selected is not None:\n        active = [selected.agent_ty",
+      "snippet_hash": "3b06c5e0c4c1ba22d8d8c99dcfbaa9170aabfa65d92d8c10b2787a534b9068f7"
+    },
+    {
+      "source_id": "S30",
+      "chunk_id": "S30#0003",
+      "title": "scheduler/baselines.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/baselines.py",
+      "snippet": "Active set = ready/selected only (not residents); residents get STE vs that frontier.\n    active = [t.agent_type for t in ready_tasks]\n    if selected is not None:\n        active = [selected.agent_type, *active]\n    ste = ste_from_workflows(workflows, active)\n    on_gpu = [a for a, ok in cache.agent_on_gpu.items() if ok]\n    ste_by_key: dict[str, float] = {}\n    for t in ready_tasks:\n        ste_by_key[key(t)] = ste.get(t.agent_type, 1e9)\n    if selected is not None:\n        ste_by_key[key(sele",
+      "snippet_hash": "b663b587df8a78a079312518afc69d4a40944ea2ddd82220e605517a9a55cf28"
+    },
+    {
+      "source_id": "S31",
+      "chunk_id": "S31#0001",
+      "title": "scheduler/baselines.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/baselines.py",
+      "snippet": "cted)] = ste.get(selected.agent_type, 1e9)\n    for pk in on_gpu:\n        ste_by_key.setdefault(pk, float(ste.get(_type_of(pk), 1e9)))\n    keep: list[str] = []\n    if selected is not None:\n        keep.append(key(selected))\n    ranked = sorted(\n        {key(t) for t in ready_tasks},\n        key=lambda k: (ste_by_key.get(k, 1e9), k),\n    )\n    for k in ranked:\n        if k not in keep:\n            keep.append(k)\n        if len(keep) >= max(1, prefetch_top_k + 1):\n            break\n    evict = sorted(\n        [a for a in on_gpu if a not in keep],\n        key=lambda a: (-ste_by_key.get(a, 0.0), a),\n    )\n    sel = key(selected) if selected is not None else None\n    prefetch = [a for a in keep if a != sel]\n    return CacheAction(keep_agents=keep, evict_agents=evict, prefetch_agents=prefetch)\n\n\ndef plan_lru_cache_actions(\n    selected: Task | None,\n    ready_tasks: list[Task],\n    cache: CacheView,\n    last_access: dict[str, float],\n    current_time: float,\n    prefetch_top_k: int = 0,\n    key_fn: PrefixKeyFn | None = None,\n) -> CacheAction:\n    key = key_fn or agent_type_key\n    keep: list[str] = []\n    if selected is not None:\n        keep.append(key(selected))\n    on_gpu = [a for a, o",
+      "snippet_hash": "f125e6cd5321f608fc2e684278fe10a0dd96bbd396ff779dc8807a0bcea08d56"
+    },
+    {
+      "source_id": "S31",
+      "chunk_id": "S31#0002",
+      "title": "scheduler/baselines.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/baselines.py",
+      "snippet": "ey_fn: PrefixKeyFn | None = None,\n) -> CacheAction:\n    key = key_fn or agent_type_key\n    keep: list[str] = []\n    if selected is not None:\n        keep.append(key(selected))\n    on_gpu = [a for a, ok in cache.agent_on_gpu.items() if ok]\n    evict = sorted(\n        [a for a in on_gpu if a not in keep],\n        key=lambda a: (last_access.get(a, -1.0), a),\n    )\n    return CacheAction(keep_agents=keep, evict_agents=evict, prefetch_agents=[])",
+      "snippet_hash": "e6fb49f5f1707772f81fd976fb73d53c741cf8f6c9368ec96f88168556924dea"
+    },
+    {
+      "source_id": "S32",
+      "chunk_id": "S32#0001",
+      "title": "scheduler/cache_scope_sensitivity.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/cache_scope_sensitivity.py",
+      "snippet": "\"\"\"Compare agent_type vs workflow_agent cache keying (#62).\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport json\nimport subprocess\nimport time\nfrom pathlib import Path\nfrom typing import Any, Sequence\n\nimport pandas as pd\n\nfrom scheduler.batch_couloir import _make_batch\nfrom scheduler.engine import SimulationEngine\nfrom scheduler.policies import get_policy\n\nDEFAULT_OUT = Path(\"scheduler/results/couloir_sweeps\")\nCONFIGS = (\n    (\"fifo\", \"lru\"),\n    (\"cpf\", \"ste\"),\n    (\"two_phase\", \"ste\"),\n    (\"couloir\", \"couloir\"),\n)\n\n\ndef _git_sha() -> str:\n    try:\n        return (\n            subprocess.check_output([\"git\", \"rev-parse\", \"HEAD\"], stderr=subprocess.DEVNULL)\n            .decode()\n            .strip()\n        )\n    except (OSError, subprocess.CalledProcessError):\n        return \"unknown\"\n\n\ndef run_scope_matrix(\n    shapes: Sequence[str] = (\"fanout\", \"random\", \"writing\"),\n    batch_sizes: Sequence[int] = (5, 10, 20),\n    key_modes: Sequence[str] = (\"agent_type\", \"workflow_agent\"),\n    num_workers: int = 4,\n    cache_capacity: int = 2048,\n    prefix_tokens: int = 512,\n    stagger_s: float = 2.0,\n    seed: int = 42,\n) -> pd.DataFrame:\n    rows: list[dict[str, Any]] = []",
+      "snippet_hash": "efebc10b935cd1a66b0f6a42244a639ee49fcb8b8cc29af535ef8982cfa0f5cf"
+    },
+    {
+      "source_id": "S32",
+      "chunk_id": "S32#0002",
+      "title": "scheduler/cache_scope_sensitivity.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/cache_scope_sensitivity.py",
+      "snippet": "_agent\"),\n    num_workers: int = 4,\n    cache_capacity: int = 2048,\n    prefix_tokens: int = 512,\n    stagger_s: float = 2.0,\n    seed: int = 42,\n) -> pd.DataFrame:\n    rows: list[dict[str, Any]] = []\n    for shape in shapes:\n        for m in batch_sizes:\n            for key_mode in key_modes:\n                for pol, mode in CONFIGS:\n                    wfs = _make_batch(shape, m, stagger_s, seed)\n                    eng = SimulationEngine(\n                        num_workers=num_workers,\n                        policy_func=get_policy(pol),\n                        policy_name=pol,\n                        cache_capacity=cache_capacity,\n                        cache_prefix_tokens=prefix_tokens,\n                        cache_mode=mode,\n                        joint_couloir=(mode == \"couloir\"),\n                        cache_key_mode=key_mode,\n                    )\n                    res = eng.run(wfs)\n                    d = res.metrics.to_dict()\n                    d.update(\n                        {\n                            \"shape\": shape,\n                            \"batch_size\": m,\n                            \"cache_key_mode\": key_mode,\n                            \"policy\": po",
+      "snippet_hash": "0680c74620006fd9e3f67f4990d2a938235472752a5a19037de86b310ee44ecb"
+    },
+    {
+      "source_id": "S32",
+      "chunk_id": "S32#0003",
+      "title": "scheduler/cache_scope_sensitivity.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/cache_scope_sensitivity.py",
+      "snippet": "{\n                            \"shape\": shape,\n                            \"batch_size\": m,\n                            \"cache_key_mode\": key_mode,\n                            \"policy\": pol,\n                            \"cache_mode\": mode,\n                            \"K\": num_workers,\n                            \"C\": cache_capacity,\n                        }\n                    )\n                    rows.append(d)\n    return pd.DataFrame(rows)\n\n\ndef main() -> None:\n    p = argparse.Ar",
+      "snippet_hash": "b16be7bd21ee42f8297e2394815ea2ccf534234c11b2021a8a77bc8c1f06584e"
+    },
+    {
+      "source_id": "S33",
+      "chunk_id": "S33#0001",
+      "title": "scheduler/cache_scope_sensitivity.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/cache_scope_sensitivity.py",
+      "snippet": "gumentParser()\n    p.add_argument(\"--out\", type=str, default=str(DEFAULT_OUT))\n    args = p.parse_args()\n    out = Path(args.out)\n    out.mkdir(parents=True, exist_ok=True)\n    df = run_scope_matrix()\n    path = out / \"cache_scope_sensitivity.csv\"\n    df.to_csv(path, index=False)\n    summary = (\n        df.groupby([\"shape\", \"batch_size\", \"cache_key_mode\", \"policy\"], as_index=False)\n        .agg(\n            makespan=(\"makespan\", \"mean\"),\n            hit_rate=(\"cache_hit_rate\", \"mean\"),\n            recompute=(\"recompute_tokens\", \"mean\"),\n        )\n    )\n    sum_path = out / \"cache_scope_summary.csv\"\n    summary.to_csv(sum_path, index=False)\n    manifest = {\n        \"git_sha\": _git_sha(),\n        \"timestamp_iso\": time.strftime(\"%Y-%m-%dT%H:%M:%SZ\", time.gmtime()),\n        \"csv\": str(path),\n        \"summary\": str(sum_path),\n        \"default_engine_mode\": \"workflow_agent\",\n    }\n    (out / \"cache_scope_manifest.json\").write_text(\n        json.dumps(manifest, indent=2), encoding=\"utf-8\"\n    )\n    # Print Couloir vs CPF recompute gap under scoped keys\n    scoped = summary[\n        (summary.cache_key_mode == \"workflow_agent\") & (summary.batch_size == 20)\n    ]\n    print(scoped[scoped.poli",
+      "snippet_hash": "e2824d5f397af87a8972d0aea81deade6a1181a0d4b7971222a1a85b405d36a9"
+    },
+    {
+      "source_id": "S33",
+      "chunk_id": "S33#0002",
+      "title": "scheduler/cache_scope_sensitivity.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/cache_scope_sensitivity.py",
+      "snippet": ")\n    # Print Couloir vs CPF recompute gap under scoped keys\n    scoped = summary[\n        (summary.cache_key_mode == \"workflow_agent\") & (summary.batch_size == 20)\n    ]\n    print(scoped[scoped.policy.isin([\"couloir\", \"cpf\", \"fifo\"])].to_string(index=False))\n    print(f\"Wrote {path}\")\n\n\nif __name__ == \"__main__\":\n    main()",
+      "snippet_hash": "b279bad56d06d719d2a8a80811c2e1bf7931f97087fcd73ea0acc9255e46e9af"
+    },
+    {
+      "source_id": "S34",
+      "chunk_id": "S34#0001",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "\"\"\"Couloir: joint compute + prefix-cache utility for multi-agent DAG scheduling.\n\nUtility for ready task i at time t:\n\n    U(i,t) = w_cp * r_cp(i)\n           + w_slack * (1 - r_slack(i))\n           + w_reuse * reuse(i)\n           - w_evict * evict_cost(i)\n           + w_age * age(i,t)\n\nwhere r_* are min-max normalized over the current ready set (0 if degenerate).\nAging age(i,t) = (t - ready_time(i)) / max(1, max wait in ready set) so starved\ntasks eventually dominate compute-only terms.\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Callable, Iterable, Sequence\n\nfrom scheduler.dag import Task, WorkflowDAG\n\n# Consensus after batch grid (not a sharp optimum; shape-best often reuse=0.75).\n# Aging kept >0 for starvation unit tests.\nDEFAULT_WEIGHTS = {\n    \"cp\": 1.0,\n    \"slack\": 0.25,\n    \"reuse\": 1.5,\n    \"evict\": 0.5,\n    \"age\": 0.25,\n}\n\nPrefixKeyFn = Callable[[Task], str]\n\n\ndef agent_type_key(task: Task) -> str:\n    \"\"\"Cross-workflow reuse if agent_type strings collide (legacy / optimistic).\"\"\"\n    return task.agent_type\n\n\ndef workflow_agent_key(task: Task) -> str:\n    \"\"\"No cross-workflow prefix sharing (closer to distinct promp",
+      "snippet_hash": "b8f2fe55f489bb07f0aa9a45b14cc37e88c46e060835734609bc24bf3914547a"
+    },
+    {
+      "source_id": "S34",
+      "chunk_id": "S34#0002",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "reuse if agent_type strings collide (legacy / optimistic).\"\"\"\n    return task.agent_type\n\n\ndef workflow_agent_key(task: Task) -> str:\n    \"\"\"No cross-workflow prefix sharing (closer to distinct prompts).\"\"\"\n    return f\"{task.workflow_id}:{task.agent_type}\"\n\n\n@dataclass(frozen=True)\nclass CouloirWeights:\n    cp: float = DEFAULT_WEIGHTS[\"cp\"]\n    slack: float = DEFAULT_WEIGHTS[\"slack\"]\n    reuse: float = DEFAULT_WEIGHTS[\"reuse\"]\n    evict: float = DEFAULT_WEIGHTS[\"evict\"]\n    age: float = DEFAULT_WEIGHTS[\"age\"]\n\n\n@dataclass\nclass CacheView:\n    \"\"\"Minimal cache state Couloir needs (agent-keyed prefix residency).\"\"\"\n\n    capacity_tokens: int\n    gpu_tokens: int\n    agent_on_gpu: dict[str, bool] = field(default_factory=dict)\n    agent_prefix_tokens: dict[str, int] = field(default_factory=dict)\n    agent_ste: dict[str, float] = field(default_factory=dict)\n\n    def reuse_benefit(self, agent: str) -> float:\n        if self.agent_on_gpu.get(agent, False):\n            return 1.0\n        return 0.0\n\n    def eviction_cost(self, agent: str) -> float:\n        \"\"\"Relative cost of bringing ``agent`` onto GPU under capacity pressure.\"\"\"\n        need = self.agent_prefix_tokens.get(agent, 0)",
+      "snippet_hash": "0c93a705183407e7d1bc1c59045ef6c69d13100efcef8e875b757c5f4f06454c"
+    },
+    {
+      "source_id": "S34",
+      "chunk_id": "S34#0003",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "n 0.0\n\n    def eviction_cost(self, agent: str) -> float:\n        \"\"\"Relative cost of bringing ``agent`` onto GPU under capacity pressure.\"\"\"\n        need = self.agent_prefix_tokens.get(agent, 0)\n        if need <= 0:\n            return 0.0\n        free = max(0, self.capacity_tokens - self.gpu_tokens)\n        if self.agent_on_gpu.get(agent, False) or need <= free:\n            return 0.0\n        # Pressure in [0, 1]: how much of capacity must be freed.\n        return min(1.0, (need - free) / max(1",
+      "snippet_hash": "cecafe508c8468d5e538a004df74df357261484ebf281a9d1d215624f410b37d"
+    },
+    {
+      "source_id": "S35",
+      "chunk_id": "S35#0001",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": ", self.capacity_tokens))\n\n\n@dataclass(frozen=True)\nclass CouloirScoreBreakdown:\n    task_id: str\n    agent_type: str\n    utility: float\n    cp: float\n    slack: float\n    reuse: float\n    evict: float\n    age: float\n    raw_cp: float\n    raw_slack: float\n    raw_age_s: float\n\n\n@dataclass\nclass CacheAction:\n    \"\"\"Evict / keep / prefetch decisions emitted with a Couloir dispatch.\"\"\"\n\n    keep_agents: list[str] = field(default_factory=list)\n    evict_agents: list[str] = field(default_factory=list)\n    prefetch_agents: list[str] = field(default_factory=list)\n\n\n@dataclass\nclass CouloirDecision:\n    ordered_tasks: list[Task]\n    scores: list[CouloirScoreBreakdown]\n    cache_action: CacheAction\n    selected_task_id: str | None = None\n\n\ndef _minmax(values: Sequence[float]) -> list[float]:\n    if not values:\n        return []\n    lo, hi = min(values), max(values)\n    if hi <= lo:\n        return [0.0 for _ in values]\n    return [(v - lo) / (hi - lo) for v in values]\n\n\ndef remaining_critical_path(\n    task: Task,\n    workflows: dict[str, WorkflowDAG],\n    ranks_cache: dict[str, dict[str, float]] | None = None,\n) -> float:\n    wf = workflows[task.workflow_id]\n    if ranks_cache is not None:",
+      "snippet_hash": "85e41cd975b3648df58f50f61a693083bd055ca496d111b08fc83d53895504ce"
+    },
+    {
+      "source_id": "S35",
+      "chunk_id": "S35#0002",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "h(\n    task: Task,\n    workflows: dict[str, WorkflowDAG],\n    ranks_cache: dict[str, dict[str, float]] | None = None,\n) -> float:\n    wf = workflows[task.workflow_id]\n    if ranks_cache is not None:\n        if task.workflow_id not in ranks_cache:\n            ranks_cache[task.workflow_id] = wf.compute_upward_ranks(use_expected=True)\n        return ranks_cache[task.workflow_id].get(task.task_id, task.expected_duration)\n    return wf.compute_upward_ranks(use_expected=True).get(\n        task.task_id, task.expected_duration\n    )\n\n\ndef task_slack(\n    task: Task,\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n    ranks_cache: dict[str, dict[str, float]] | None = None,\n    deadlines_cache: dict[str, float] | None = None,\n    deadline_multiplier: float = 1.0,\n) -> float:\n    wf_id = task.workflow_id\n    wf = workflows[wf_id]\n    if ranks_cache is None:\n        ranks_cache = {}\n    if deadlines_cache is None:\n        deadlines_cache = {}\n    if wf_id not in ranks_cache:\n        ranks_cache[wf_id] = wf.compute_upward_ranks(use_expected=True)\n    if wf_id not in deadlines_cache:\n        _, min_makespan = wf.compute_critical_path(use_expected=True)\n        deadlines_cache[wf_",
+      "snippet_hash": "fd4d352cf938e4e4244bc21d0a57486e56df014ee22b50763f5951b50f42633c"
+    },
+    {
+      "source_id": "S35",
+      "chunk_id": "S35#0003",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "ranks_cache[wf_id] = wf.compute_upward_ranks(use_expected=True)\n    if wf_id not in deadlines_cache:\n        _, min_makespan = wf.compute_critical_path(use_expected=True)\n        deadlines_cache[wf_id] = task.arrival_time + min_makespan * deadline_multiplier\n    upward = ranks_cache[wf_id].get(task.task_id, task.expected_duration)\n    return deadlines_cache[wf_id] - (current_time + upward)\n\n\ndef wait_age_seconds(task: Task, current_time: float) -> float:\n    ready = task.ready_time if task.rea",
+      "snippet_hash": "5cdb73145b1231848ed0a40913cb1b0fcfc2fdc78ea3702706b49e2b02bf35b9"
+    },
+    {
+      "source_id": "S36",
+      "chunk_id": "S36#0001",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "dy_time is not None else task.arrival_time\n    return max(0.0, current_time - ready)\n\n\ndef score_ready_tasks(\n    ready_tasks: Sequence[Task],\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n    cache: CacheView | None = None,\n    weights: CouloirWeights | None = None,\n    enable_aging: bool = True,\n    key_fn: PrefixKeyFn | None = None,\n) -> list[CouloirScoreBreakdown]:\n    \"\"\"Score every ready task. Deterministic for fixed inputs.\"\"\"\n    if not ready_tasks:\n        return []\n    w = weights or CouloirWeights()\n    cache = cache or CacheView(capacity_tokens=1, gpu_tokens=0)\n    key = key_fn or agent_type_key\n    ranks: dict[str, dict[str, float]] = {}\n    deadlines: dict[str, float] = {}\n\n    raw_cp = [remaining_critical_path(t, workflows, ranks) for t in ready_tasks]\n    raw_slack = [\n        task_slack(t, current_time, workflows, ranks, deadlines) for t in ready_tasks\n    ]\n    raw_age = [wait_age_seconds(t, current_time) for t in ready_tasks]\n    raw_reuse = [cache.reuse_benefit(key(t)) for t in ready_tasks]\n    raw_evict = [cache.eviction_cost(key(t)) for t in ready_tasks]\n\n    n_cp = _minmax(raw_cp)\n    # Lower slack → higher urgency; normalize then invert in",
+      "snippet_hash": "18c325bb7a815a96272b09919e8f463413c72591a83f75889a851e3102d34b4b"
+    },
+    {
+      "source_id": "S36",
+      "chunk_id": "S36#0002",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "reuse_benefit(key(t)) for t in ready_tasks]\n    raw_evict = [cache.eviction_cost(key(t)) for t in ready_tasks]\n\n    n_cp = _minmax(raw_cp)\n    # Lower slack → higher urgency; normalize then invert in the utility mix.\n    n_slack = _minmax(raw_slack)\n    n_age = _minmax(raw_age) if enable_aging else [0.0] * len(ready_tasks)\n\n    out: list[CouloirScoreBreakdown] = []\n    for i, t in enumerate(ready_tasks):\n        utility = (\n            w.cp * n_cp[i]\n            + w.slack * (1.0 - n_slack[i])\n            + w.reuse * raw_reuse[i]\n            - w.evict * raw_evict[i]\n            + w.age * n_age[i]\n        )\n        out.append(\n            CouloirScoreBreakdown(\n                task_id=t.task_id,\n                agent_type=t.agent_type,\n                utility=utility,\n                cp=n_cp[i],\n                slack=n_slack[i],\n                reuse=raw_reuse[i],\n                evict=raw_evict[i],\n                age=n_age[i],\n                raw_cp=raw_cp[i],\n                raw_slack=raw_slack[i],\n                raw_age_s=raw_age[i],\n            )\n        )\n    return out\n\n\ndef order_by_utility(\n    ready_tasks: Sequence[Task],\n    scores: Sequence[CouloirScoreBreakdown],\n) -> l",
+      "snippet_hash": "d6f66ec4b189b918bf62246e175c543cb41c689e7de4d93b26d9f1193b5e3dbe"
+    },
+    {
+      "source_id": "S36",
+      "chunk_id": "S36#0003",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "=raw_slack[i],\n                raw_age_s=raw_age[i],\n            )\n        )\n    return out\n\n\ndef order_by_utility(\n    ready_tasks: Sequence[Task],\n    scores: Sequence[CouloirScoreBreakdown],\n) -> list[Task]:\n    by_id = {t.task_id: t for t in ready_tasks}\n    ranked = sorted(\n        scores,\n        key=lambda s: (-s.utility, s.raw_slack, s.task_id),\n    )\n    return [by_id[s.task_id] for s in ranked]\n\n\ndef plan_cache_actions(\n    selected: Task | None,\n    ready_tasks: Sequence[Task],\n    sc",
+      "snippet_hash": "57cb698357a059687978087e435abe8ac3c749019abca858068fca9577f741e8"
+    },
+    {
+      "source_id": "S37",
+      "chunk_id": "S37#0001",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "ores: Sequence[CouloirScoreBreakdown],\n    cache: CacheView,\n    prefetch_top_k: int = 1,\n    key_fn: PrefixKeyFn | None = None,\n) -> CacheAction:\n    \"\"\"Keep selected + high-utility ready agents; evict lowest-utility residents.\"\"\"\n    key = key_fn or agent_type_key\n    by_id = {t.task_id: t for t in ready_tasks}\n    if selected is not None:\n        by_id[selected.task_id] = selected\n    score_by_key: dict[str, CouloirScoreBreakdown] = {}\n    for s in scores:\n        t = by_id.get(s.task_id)\n        if t is not None:\n            score_by_key[key(t)] = s\n    keep: list[str] = []\n    if selected is not None:\n        keep.append(key(selected))\n    ranked_keys = sorted(\n        {key(t) for t in ready_tasks},\n        key=lambda k: (\n            -(score_by_key[k].utility if k in score_by_key else 0.0),\n            k,\n        ),\n    )\n    for k in ranked_keys:\n        if k not in keep:\n            keep.append(k)\n        if len(keep) >= max(1, prefetch_top_k + 1):\n            break\n\n    on_gpu = [a for a, ok in cache.agent_on_gpu.items() if ok]\n    evict = sorted(\n        [a for a in on_gpu if a not in keep],\n        key=lambda a: (\n            score_by_key[a].utility if a in score_by_key",
+      "snippet_hash": "32b1e7ad40417e21f21676bd150d663fb151f310ac0f41346bf33a24c8ead52a"
+    },
+    {
+      "source_id": "S37",
+      "chunk_id": "S37#0002",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "= [a for a, ok in cache.agent_on_gpu.items() if ok]\n    evict = sorted(\n        [a for a in on_gpu if a not in keep],\n        key=lambda a: (\n            score_by_key[a].utility if a in score_by_key else -1.0,\n            -cache.agent_ste.get(a, 0.0),\n            a,\n        ),\n    )\n    sel_key = key(selected) if selected is not None else None\n    prefetch = [a for a in keep if a != sel_key]\n    return CacheAction(keep_agents=keep, evict_agents=evict, prefetch_agents=prefetch)\n\n\ndef decide(\n    ready_tasks: Sequence[Task],\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n    cache: CacheView | None = None,\n    weights: CouloirWeights | None = None,\n    enable_aging: bool = True,\n    prefetch_top_k: int = 1,\n    key_fn: PrefixKeyFn | None = None,\n) -> CouloirDecision:\n    key = key_fn or agent_type_key\n    cache = cache or CacheView(capacity_tokens=1, gpu_tokens=0)\n    scores = score_ready_tasks(\n        ready_tasks,\n        current_time,\n        workflows,\n        cache,\n        weights,\n        enable_aging,\n        key_fn=key,\n    )\n    ordered = order_by_utility(ready_tasks, scores)\n    selected = ordered[0] if ordered else None\n    action = plan_cache_actions(",
+      "snippet_hash": "2f2884ce54b13b283f5bbccab28a3229565b0333c81e2762254a21d67f8bebca"
+    },
+    {
+      "source_id": "S37",
+      "chunk_id": "S37#0003",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": ",\n        weights,\n        enable_aging,\n        key_fn=key,\n    )\n    ordered = order_by_utility(ready_tasks, scores)\n    selected = ordered[0] if ordered else None\n    action = plan_cache_actions(\n        selected,\n        ready_tasks,\n        scores,\n        cache,\n        prefetch_top_k=prefetch_top_k,\n        key_fn=key,\n    )\n    return CouloirDecision(\n        ordered_tasks=ordered,\n        scores=scores,\n        cache_action=action,\n        selected_task_id=selected.task_id if selected e",
+      "snippet_hash": "dbe8b575539a50ae1dfb11c60f19ceef3a08ebc3bd10d3077e4ea2f8132b2c82"
+    },
+    {
+      "source_id": "S38",
+      "chunk_id": "S38#0001",
+      "title": "scheduler/couloir.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/couloir.py",
+      "snippet": "lse None,\n    )\n\n\ndef couloir_policy(\n    ready_tasks: list[Task],\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n) -> list[Task]:\n    \"\"\"Compute-only Couloir ordering (no live cache view). Compatible with SimulationEngine.\"\"\"\n    return decide(ready_tasks, current_time, workflows).ordered_tasks\n\n\ndef eviction_priority_agents(\n    agents: Iterable[str],\n    scores_by_agent: dict[str, float],\n    ste: dict[str, float] | None = None,\n) -> list[str]:\n    \"\"\"Higher list position = more evictable (low utility, high STE).\"\"\"\n    ste = ste or {}\n    return sorted(\n        agents,\n        key=lambda a: (scores_by_agent.get(a, 0.0), -ste.get(a, 0.0), a),\n    )",
+      "snippet_hash": "c79fadbcae27de906dc88ae2022a0ad0fd4786805040c518b8946bd4c33683d6"
+    },
+    {
+      "source_id": "S39",
+      "chunk_id": "S39#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "\"\"\"Discrete-event simulation engine for multi-agent DAG scheduling across worker pools.\"\"\"\n\nfrom __future__ import annotations\n\nimport heapq\nfrom dataclasses import dataclass, field\nfrom enum import IntEnum\nfrom typing import Any, Callable, Sequence\n\nfrom scheduler.baselines import plan_lru_cache_actions, plan_ste_cache_actions\nfrom scheduler.couloir import (\n    CacheAction,\n    CacheView,\n    CouloirDecision,\n    CouloirWeights,\n    PrefixKeyFn,\n    agent_type_key,\n    decide,\n    workflow_agent_key,\n)\nfrom scheduler.dag import Task, WorkflowDAG\nfrom scheduler.metrics import MetricsCollector, SchedulingMetrics\n\n\nclass EventType(IntEnum):\n    WORKFLOW_ARRIVAL = 1\n    TASK_COMPLETE = 2\n\n\n@dataclass(order=True)\nclass SimEvent:\n    time: float\n    priority: int\n    event_type: EventType = field(compare=False)\n    payload: Any = field(compare=False)\n\n\n@dataclass\nclass Worker:\n    worker_id: int\n    busy_until: float = 0.0\n    current_task: Task | None = None\n    total_busy_time: float = 0.0\n\n\nclass WorkerPool:\n    \"\"\"Manages a fixed pool of K worker slots (representing compute threads or LLM API slots).\"\"\"\n\n    def __init__(self, num_workers: int) -> None:\n        if num_workers < 1:",
+      "snippet_hash": "9a89f19922fea4a62c58528aeeff3f24ca8c15e512eebbddc618987ef1711944"
+    },
+    {
+      "source_id": "S39",
+      "chunk_id": "S39#0002",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": ".0\n\n\nclass WorkerPool:\n    \"\"\"Manages a fixed pool of K worker slots (representing compute threads or LLM API slots).\"\"\"\n\n    def __init__(self, num_workers: int) -> None:\n        if num_workers < 1:\n            raise ValueError(\"num_workers must be at least 1\")\n        self.num_workers = num_workers\n        self.workers = [Worker(worker_id=i) for i in range(num_workers)]\n\n    @property\n    def idle_workers(self) -> list[Worker]:\n        return [w for w in self.workers if w.current_task is None]\n\n    def assign_task(\n        self,\n        worker: Worker,\n        task: Task,\n        current_time: float,\n        duration: float | None = None,\n    ) -> float:\n        \"\"\"Assign task to worker, return finish timestamp.\n\n        ``duration`` overrides ``task.actual_duration`` when cache hit/miss\n        adjusts prefill cost; the task field is updated to the effective value.\n        \"\"\"\n        run_s = task.actual_duration if duration is None else duration\n        task.actual_duration = run_s\n        worker.current_task = task\n        task.assigned_worker = worker.worker_id\n        task.start_time = current_time\n        task.finish_time = current_time + run_s\n        worker.busy_until = t",
+      "snippet_hash": "71a17670a54ebea9f36493eeaa9cacc8152c55a8291c1f9356ec19becf95235c"
+    },
+    {
+      "source_id": "S39",
+      "chunk_id": "S39#0003",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "worker.current_task = task\n        task.assigned_worker = worker.worker_id\n        task.start_time = current_time\n        task.finish_time = current_time + run_s\n        worker.busy_until = task.finish_time\n        worker.total_busy_time += run_s\n        return task.finish_time\n\n    def release_worker(self, worker_id: int) -> Worker:\n        worker = self.workers[worker_id]\n        worker.current_task = None\n        return worker\n\n\n@dataclass\nclass SimulationResult:\n    \"\"\"Detailed resu",
+      "snippet_hash": "db264bb2b7753fb3931bfbfe5816d652e708ed7319f23254f10e0644a8135bf9"
+    },
+    {
+      "source_id": "S40",
+      "chunk_id": "S40#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "lt of a discrete-event simulation run.\"\"\"\n\n    policy_name: str\n    num_workers: int\n    workflows: list[WorkflowDAG]\n    metrics: SchedulingMetrics\n    event_log: list[dict[str, Any]] = field(default_factory=list)\n    cache_capacity: int | None = None\n\n\n# Policy sort function signature: (ready_queue: list[Task], current_time: float, workflows_map: dict[str, WorkflowDAG]) -> list[Task]\nPolicyFunction = Callable[[list[Task], float, dict[str, WorkflowDAG]], list[Task]]\n\n\n# Prefill throughput for miss→hit duration coupling (tok/s). Lower than\n# kvflow RECOMPUTE so conceptual prefixes produce visible makespan deltas.\nPREFILL_TOKENS_PER_SEC = 1024.0\n\n\nclass JointCacheState:\n    \"\"\"Lightweight token-budget cache tied to agent types for Couloir joint mode.\"\"\"\n\n    def __init__(\n        self,\n        capacity_tokens: int,\n        prefix_tokens: int = 20,\n        agents: Sequence[str] | None = None,\n        prefill_tokens_per_sec: float = PREFILL_TOKENS_PER_SEC,\n    ) -> None:\n        if capacity_tokens < 1:\n            raise ValueError(\"capacity_tokens must be >= 1\")\n        self.capacity_tokens = capacity_tokens\n        self.prefix_tokens = prefix_tokens\n        self.prefill_tokens_per_se",
+      "snippet_hash": "28766af7c2b7b3f04c72c1a919aab219f0334d09d27e911e60bebb2eca66c0c2"
+    },
+    {
+      "source_id": "S40",
+      "chunk_id": "S40#0002",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "ty_tokens < 1:\n            raise ValueError(\"capacity_tokens must be >= 1\")\n        self.capacity_tokens = capacity_tokens\n        self.prefix_tokens = prefix_tokens\n        self.prefill_tokens_per_sec = prefill_tokens_per_sec\n        self.agent_on_gpu: dict[str, bool] = {a: False for a in (agents or [])}\n        self.hits = 0\n        self.misses = 0\n        self.recompute_tokens = 0\n        self.evictions = 0\n\n    def prefill_latency_s(self) -> float:\n        return self.prefix_tokens / self.prefill_tokens_per_sec\n\n    def effective_duration(self, base_duration: float, hit: bool) -> float:\n        \"\"\"Profiled duration assumes cold prefill; a hit skips that cost.\"\"\"\n        save = self.prefill_latency_s() if hit else 0.0\n        return max(0.05, base_duration - save)\n\n    def view(self) -> CacheView:\n        gpu = sum(\n            self.prefix_tokens for a, on in self.agent_on_gpu.items() if on\n        )\n        return CacheView(\n            capacity_tokens=self.capacity_tokens,\n            gpu_tokens=gpu,\n            agent_on_gpu=dict(self.agent_on_gpu),\n            agent_prefix_tokens={\n                a: self.prefix_tokens for a in self.agent_on_gpu\n            },\n        )",
+      "snippet_hash": "6fedc211161837c19d5695932a7dd6bfa592c880b33dd81db0be95b4b4f56336"
+    },
+    {
+      "source_id": "S40",
+      "chunk_id": "S40#0003",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "gpu_tokens=gpu,\n            agent_on_gpu=dict(self.agent_on_gpu),\n            agent_prefix_tokens={\n                a: self.prefix_tokens for a in self.agent_on_gpu\n            },\n        )\n\n    def apply_action(self, action: CacheAction, selected_agent: str) -> dict[str, Any]:\n        for a in action.evict_agents:\n            if self.agent_on_gpu.get(a):\n                self.agent_on_gpu[a] = False\n                self.evictions += 1\n        hit = bool(self.agent_on_gpu.get(selected_agent)",
+      "snippet_hash": "3f03ead4054524f2d4f8251e70b385653e8412c4f0ffd0179d436cc4af206d83"
+    },
+    {
+      "source_id": "S41",
+      "chunk_id": "S41#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": ")\n        if hit:\n            self.hits += 1\n        else:\n            self.misses += 1\n            self.recompute_tokens += self.prefix_tokens\n            while (\n                sum(self.prefix_tokens for a, on in self.agent_on_gpu.items() if on)\n                + self.prefix_tokens\n                > self.capacity_tokens\n            ):\n                victims = [\n                    a for a, on in self.agent_on_gpu.items() if on and a != selected_agent\n                ]\n                if not victims:\n                    break\n                victim = victims[0]\n                self.agent_on_gpu[victim] = False\n                self.evictions += 1\n            self.agent_on_gpu[selected_agent] = True\n        for a in action.prefetch_agents:\n            if a == selected_agent:\n                continue\n            free = self.capacity_tokens - sum(\n                self.prefix_tokens for x, on in self.agent_on_gpu.items() if on\n            )\n            if free >= self.prefix_tokens:\n                self.agent_on_gpu[a] = True\n        return {\n            \"cache_hit\": hit,\n            \"keep\": list(action.keep_agents),\n            \"evict\": list(action.evict_agents),\n            \"prefet",
+      "snippet_hash": "d8c0e4cd769d5e2842213dff83b242f5097cd9f7f9259c163c951112e282b7d5"
+    },
+    {
+      "source_id": "S41",
+      "chunk_id": "S41#0002",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "self.agent_on_gpu[a] = True\n        return {\n            \"cache_hit\": hit,\n            \"keep\": list(action.keep_agents),\n            \"evict\": list(action.evict_agents),\n            \"prefetch\": list(action.prefetch_agents),\n        }\n\n    def apply_decision(self, decision: CouloirDecision, selected_agent: str) -> dict[str, Any]:\n        return self.apply_action(decision.cache_action, selected_agent)\n\n\nclass SimulationEngine:\n    \"\"\"Discrete-event simulator for multi-agent DAG task execution under worker contention.\"\"\"\n\n    def __init__(\n        self,\n        num_workers: int,\n        policy_func: PolicyFunction,\n        policy_name: str = \"custom\",\n        cache_capacity: int | None = None,\n        cache_prefix_tokens: int = 20,\n        joint_couloir: bool = False,\n        cache_mode: str | None = None,\n        enable_aging: bool = True,\n        weights: CouloirWeights | None = None,\n        cache_key_mode: str = \"workflow_agent\",\n    ) -> None:\n        self.num_workers = num_workers\n        self.policy_func = policy_func\n        self.policy_name = policy_name\n        self.cache_capacity = cache_capacity\n        self.cache_prefix_tokens = cache_prefix_tokens\n        self",
+      "snippet_hash": "600dc559389ba3738771a6360a05563ba013728ffdc9144f3a9d921d1f5c62ea"
+    },
+    {
+      "source_id": "S41",
+      "chunk_id": "S41#0003",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "m_workers\n        self.policy_func = policy_func\n        self.policy_name = policy_name\n        self.cache_capacity = cache_capacity\n        self.cache_prefix_tokens = cache_prefix_tokens\n        self.enable_aging = enable_aging\n        self.weights = weights\n        mode = (cache_key_mode or \"workflow_agent\").strip().lower()\n        if mode not in (\"agent_type\", \"workflow_agent\"):\n            raise ValueError(\"cache_key_mode must be agent_type|workflow_agent\")\n        self.cache_key_mode = mode",
+      "snippet_hash": "e0ad82a4af87351205ab36a02d8f9176e5fb50417fc1a8cdbe8d25557ad0626c"
+    },
+    {
+      "source_id": "S42",
+      "chunk_id": "S42#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "self._key_fn: PrefixKeyFn = (\n            agent_type_key if mode == \"agent_type\" else workflow_agent_key\n        )\n        name = policy_name.strip().lower()\n        self.joint_couloir = joint_couloir or name == \"couloir\"\n        # cache_mode: none | lru | ste | couloir (default: couloir if joint, else none)\n        if cache_mode is not None:\n            self.cache_mode = cache_mode\n        elif self.joint_couloir:\n            self.cache_mode = \"couloir\"\n        elif name in (\"two_phase\", \"two_phase_cpf_ste\", \"cpf_ste\"):\n            self.cache_mode = \"ste\"\n        else:\n            self.cache_mode = \"none\"\n\n    def run(\n        self,\n        workflows: Sequence[WorkflowDAG],\n        sim_start_time: float = 0.0,\n    ) -> SimulationResult:\n        \"\"\"Execute the discrete-event simulation on the supplied workflows.\"\"\"\n        worker_pool = WorkerPool(self.num_workers)\n        workflows_map: dict[str, WorkflowDAG] = {wf.workflow_id: wf for wf in workflows}\n\n        # Track unmet predecessor counts for each task\n        unmet_preds: dict[str, int] = {}\n        task_map: dict[str, Task] = {}\n        for wf in workflows:\n            for task_id, task in wf.tasks.items():\n                t",
+      "snippet_hash": "79ef0721288f9bddc06a765a401a23c7692056f08c5a9bc0432afdecc89ec7df"
+    },
+    {
+      "source_id": "S42",
+      "chunk_id": "S42#0002",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "r counts for each task\n        unmet_preds: dict[str, int] = {}\n        task_map: dict[str, Task] = {}\n        for wf in workflows:\n            for task_id, task in wf.tasks.items():\n                task_map[task_id] = task\n                unmet_preds[task_id] = len(wf.predecessors[task_id])\n\n        # Priority queue for discrete events\n        event_queue: list[SimEvent] = []\n        event_counter = 0\n\n        # Schedule workflow arrivals\n        for wf in workflows:\n            heapq.heappush(\n                event_queue,\n                SimEvent(\n                    time=wf.arrival_time,\n                    priority=event_counter,\n                    event_type=EventType.WORKFLOW_ARRIVAL,\n                    payload=wf.workflow_id,\n                ),\n            )\n            event_counter += 1\n\n        ready_queue: list[Task] = []\n        event_log: list[dict[str, Any]] = []\n        current_time = sim_start_time\n\n        prefix_keys = sorted({self._key_fn(t) for t in task_map.values()})\n        cache_state: JointCacheState | None = None\n        last_access: dict[str, float] = {a: -1.0 for a in prefix_keys}\n        use_cache = self.cache_capacity is not None and self.cache_mode",
+      "snippet_hash": "9dfc4a9102551de090d1eafdff90aec31250a214ff07cd076f629be577b1db0f"
+    },
+    {
+      "source_id": "S42",
+      "chunk_id": "S42#0003",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "s()})\n        cache_state: JointCacheState | None = None\n        last_access: dict[str, float] = {a: -1.0 for a in prefix_keys}\n        use_cache = self.cache_capacity is not None and self.cache_mode != \"none\"\n        if use_cache:\n            cache_state = JointCacheState(\n                capacity_tokens=self.cache_capacity or 1,\n                prefix_tokens=self.cache_prefix_tokens,\n                agents=prefix_keys,\n            )\n\n        def dispatch_ready_tasks() -> None:",
+      "snippet_hash": "03ce8528586aaacd9b027a70dbe6e4953f98435725dcdf813652218cc4a20f89"
+    },
+    {
+      "source_id": "S43",
+      "chunk_id": "S43#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "nonlocal event_counter\n            if not ready_queue or not worker_pool.idle_workers:\n                return\n\n            if self.cache_mode == \"couloir\" or self.joint_couloir:\n                decision = decide(\n                    list(ready_queue),\n                    current_time,\n                    workflows_map,\n                    cache=cache_state.view() if cache_state else None,\n                    weights=self.weights,\n                    enable_aging=self.enable_aging,\n                    key_fn=self._key_fn,\n                )\n                ordered_tasks = decision.ordered_tasks\n            else:\n                ordered_tasks = self.policy_func(\n                    list(ready_queue), current_time, workflows_map\n                )\n            ready_queue.clear()\n            ready_queue.extend(ordered_tasks)\n\n            while ready_queue and worker_pool.idle_workers:\n                next_task = ready_queue.pop(0)\n                idle_worker = worker_pool.idle_workers[0]\n\n                # Cache plan + apply *before* assign so hit/miss can shorten duration.\n                cache_meta: dict[str, Any] = {}\n                run_s = next_task.actual_duration\n                i",
+      "snippet_hash": "74de9478a1f989e7d9b404e711608c9ad4a3e43e2954c2809afc9e2d5fc90dbb"
+    },
+    {
+      "source_id": "S43",
+      "chunk_id": "S43#0002",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "# Cache plan + apply *before* assign so hit/miss can shorten duration.\n                cache_meta: dict[str, Any] = {}\n                run_s = next_task.actual_duration\n                if cache_state is not None:\n                    remaining = [next_task, *ready_queue]\n                    view = cache_state.view()\n                    pkey = self._key_fn(next_task)\n                    if self.cache_mode == \"couloir\" or self.joint_couloir:\n                        step = decide(\n                            remaining,\n                            current_time,\n                            workflows_map,\n                            cache=view,\n                            weights=self.weights,\n                            enable_aging=self.enable_aging,\n                            key_fn=self._key_fn,\n                        )\n                        action = step.cache_action\n                        cache_meta[\"utilities\"] = {\n                            s.task_id: round(s.utility, 4) for s in step.scores\n                        }\n                    elif self.cache_mode == \"ste\":\n                        action = plan_ste_cache_actions(\n                            next_task,",
+      "snippet_hash": "a2e89cfd04f40fd4093378ff97b8f489475f55dc17f1d46e3e192bae0240518a"
+    },
+    {
+      "source_id": "S43",
+      "chunk_id": "S43#0003",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "ty, 4) for s in step.scores\n                        }\n                    elif self.cache_mode == \"ste\":\n                        action = plan_ste_cache_actions(\n                            next_task,\n                            remaining,\n                            workflows_map,\n                            view,\n                            key_fn=self._key_fn,\n                        )\n                    elif self.cache_mode == \"lru\":\n                        action = plan_lru_cache_acti",
+      "snippet_hash": "7105b57e254f1e1c44232e5defc08d9cdc474a9e4e889fbd79fa513f4b1e6d06"
+    },
+    {
+      "source_id": "S44",
+      "chunk_id": "S44#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "ons(\n                            next_task,\n                            remaining,\n                            view,\n                            last_access,\n                            current_time,\n                            key_fn=self._key_fn,\n                        )\n                    else:\n                        action = CacheAction(keep_agents=[pkey])\n                    cache_meta.update(cache_state.apply_action(action, pkey))\n                    hit = bool(cache_meta.get(\"cache_hit\"))\n                    run_s = cache_state.effective_duration(next_task.actual_duration, hit)\n                    cache_meta[\"selected_task_id\"] = next_task.task_id\n                    cache_meta[\"cache_mode\"] = self.cache_mode\n                    cache_meta[\"cache_key_mode\"] = self.cache_key_mode\n                    cache_meta[\"prefix_key\"] = pkey\n                    cache_meta[\"effective_duration\"] = round(run_s, 4)\n                    last_access[pkey] = current_time\n\n                finish_t = worker_pool.assign_task(\n                    idle_worker, next_task, current_time, duration=run_s\n                )\n\n                event_log.append(\n                    {",
+      "snippet_hash": "6fa4d2f600a54422e07e40e1b5d5919ccda5fa01a9298804eb89af1d1e48401c"
+    },
+    {
+      "source_id": "S44",
+      "chunk_id": "S44#0002",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "t = worker_pool.assign_task(\n                    idle_worker, next_task, current_time, duration=run_s\n                )\n\n                event_log.append(\n                    {\n                        \"time\": current_time,\n                        \"event\": \"TASK_START\",\n                        \"task_id\": next_task.task_id,\n                        \"agent_type\": next_task.agent_type,\n                        \"worker_id\": idle_worker.worker_id,\n                        \"finish_time\": finish_t,\n                        \"waiting_time\": next_task.waiting_time,\n                        **({\"cache\": cache_meta} if cache_meta else {}),\n                    }\n                )\n\n                heapq.heappush(\n                    event_queue,\n                    SimEvent(\n                        time=finish_t,\n                        priority=event_counter,\n                        event_type=EventType.TASK_COMPLETE,\n                        payload=(next_task.task_id, idle_worker.worker_id),\n                    ),\n                )\n                event_counter += 1\n\n        # Main event loop\n        while event_queue:\n            event = heapq.heappop(event_queue)\n            current_time = event.t",
+      "snippet_hash": "1738cdc7862d1b071b06f64466cf556051fc931cd5712aea08d3a32313753e6a"
+    },
+    {
+      "source_id": "S44",
+      "chunk_id": "S44#0003",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "),\n                )\n                event_counter += 1\n\n        # Main event loop\n        while event_queue:\n            event = heapq.heappop(event_queue)\n            current_time = event.time\n\n            if event.event_type == EventType.WORKFLOW_ARRIVAL:\n                wf_id = event.payload\n                wf = workflows_map[wf_id]\n                for task_id, task in wf.tasks.items():\n                    if unmet_preds[task_id] == 0:\n                        task.ready_time = curre",
+      "snippet_hash": "b912f7cc2c0f9580ee9bef9a8ea1277c34cdfc6486bde4e8b4f70ae11bcfac1c"
+    },
+    {
+      "source_id": "S45",
+      "chunk_id": "S45#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "nt_time\n                        ready_queue.append(task)\n                        event_log.append(\n                            {\n                                \"time\": current_time,\n                                \"event\": \"TASK_READY\",\n                                \"task_id\": task_id,\n                                \"agent_type\": task.agent_type,\n                            }\n                        )\n                dispatch_ready_tasks()\n\n            elif event.event_type == EventType.TASK_COMPLETE:\n                task_id, worker_id = event.payload\n                completed_task = task_map[task_id]\n                worker_pool.release_worker(worker_id)\n\n                event_log.append(\n                    {\n                        \"time\": current_time,\n                        \"event\": \"TASK_FINISH\",\n                        \"task_id\": task_id,\n                        \"agent_type\": completed_task.agent_type,\n                        \"worker_id\": worker_id,\n                        \"duration\": completed_task.actual_duration,\n                    }\n                )\n\n                wf = workflows_map[completed_task.workflow_id]\n                for succ_id in wf.successors[task_id]",
+      "snippet_hash": "fa13970f42bee093a588adb9f6f15e60d4dcb3bdfa2eada097f146b4a5018ea9"
+    },
+    {
+      "source_id": "S45",
+      "chunk_id": "S45#0002",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "duration\": completed_task.actual_duration,\n                    }\n                )\n\n                wf = workflows_map[completed_task.workflow_id]\n                for succ_id in wf.successors[task_id]:\n                    unmet_preds[succ_id] -= 1\n                    if unmet_preds[succ_id] == 0:\n                        succ_task = task_map[succ_id]\n                        succ_task.ready_time = current_time\n                        ready_queue.append(succ_task)\n                        event_log.append(\n                            {\n                                \"time\": current_time,\n                                \"event\": \"TASK_READY\",\n                                \"task_id\": succ_id,\n                                \"agent_type\": succ_task.agent_type,\n                            }\n                        )\n\n                dispatch_ready_tasks()\n\n        cache_stats = None\n        if cache_state is not None:\n            cache_stats = {\n                \"hits\": cache_state.hits,\n                \"misses\": cache_state.misses,\n                \"recompute_tokens\": cache_state.recompute_tokens,\n                \"evictions\": cache_state.evictions,\n                \"hit_rate\": (",
+      "snippet_hash": "0a1752134c6f6d1691698f4852c0328fe27702ebf75afe8910c55e435d2af8b6"
+    },
+    {
+      "source_id": "S45",
+      "chunk_id": "S45#0003",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "\"misses\": cache_state.misses,\n                \"recompute_tokens\": cache_state.recompute_tokens,\n                \"evictions\": cache_state.evictions,\n                \"hit_rate\": (\n                    cache_state.hits / (cache_state.hits + cache_state.misses)\n                    if (cache_state.hits + cache_state.misses)\n                    else 0.0\n                ),\n            }\n\n        metrics = MetricsCollector.calculate(\n            policy_name=self.policy_name,\n            num_",
+      "snippet_hash": "e19b2e09721b150077bdd1b4f60444f35343f145ab819207952511ca5fbb2915"
+    },
+    {
+      "source_id": "S46",
+      "chunk_id": "S46#0001",
+      "title": "scheduler/engine.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/engine.py",
+      "snippet": "workers=self.num_workers,\n            workflows=workflows,\n            sim_start_time=sim_start_time,\n            cache_stats=cache_stats,\n        )\n\n        return SimulationResult(\n            policy_name=self.policy_name,\n            num_workers=self.num_workers,\n            workflows=list(workflows),\n            metrics=metrics,\n            event_log=event_log,\n            cache_capacity=self.cache_capacity,\n        )",
+      "snippet_hash": "fa3206d04f3d26e43b11dc3ed4b17a93a06f419e4d96ae1dbe453f36f3757a4a"
+    },
+    {
+      "source_id": "S47",
+      "chunk_id": "S47#0001",
+      "title": "scheduler/policies.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/policies.py",
+      "snippet": "\"\"\"Scheduling policies for multi-agent DAG execution: FIFO, CPF, Slack, HEFT, Couloir.\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import Callable\n\nfrom scheduler.couloir import couloir_policy\nfrom scheduler.dag import Task, WorkflowDAG\n\nPolicyFunction = Callable[[list[Task], float, dict[str, WorkflowDAG]], list[Task]]\n\n\ndef fifo_policy(\n    ready_tasks: list[Task],\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n) -> list[Task]:\n    \"\"\"FIFO / First-Come-First-Served.\n\n    Sorts by ready_time ascending, then task_id for stability.\n    \"\"\"\n    return sorted(\n        ready_tasks,\n        key=lambda t: (\n            t.ready_time if t.ready_time is not None else t.arrival_time,\n            t.arrival_time,\n            t.task_id,\n        ),\n    )\n\n\ndef critical_path_first_policy(\n    ready_tasks: list[Task],\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n) -> list[Task]:\n    \"\"\"Critical-Path-First (CPF).\n\n    Prioritizes tasks with the largest remaining path length (upward rank)\n    to the workflow sink. Tasks on the critical path finish earlier, unblocking downstream joins.\n    \"\"\"\n    # Cache upward ranks per workflow\n    upward_ranks_cache: dic",
+      "snippet_hash": "5dc272e4726b484a4c5e674b36b16591bcac6b00d97fafa5306c3684395bdffc"
+    },
+    {
+      "source_id": "S47",
+      "chunk_id": "S47#0002",
+      "title": "scheduler/policies.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/policies.py",
+      "snippet": "ng path length (upward rank)\n    to the workflow sink. Tasks on the critical path finish earlier, unblocking downstream joins.\n    \"\"\"\n    # Cache upward ranks per workflow\n    upward_ranks_cache: dict[str, dict[str, float]] = {}\n\n    def get_upward_rank(task: Task) -> float:\n        wf_id = task.workflow_id\n        if wf_id not in upward_ranks_cache:\n            wf = workflows[wf_id]\n            upward_ranks_cache[wf_id] = wf.compute_upward_ranks(use_expected=True)\n        return upward_ranks_cache[wf_id].get(task.task_id, task.expected_duration)\n\n    return sorted(\n        ready_tasks,\n        key=lambda t: (-get_upward_rank(t), t.ready_time or 0.0, t.task_id),\n    )\n\n\ndef least_slack_first_policy(\n    ready_tasks: list[Task],\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n    target_deadline_multiplier: float = 1.0,\n) -> list[Task]:\n    \"\"\"Least-Slack-First (LSF) / Slack-based Prioritization.\n\n    Slack(i, t) = Deadline - (current_time + remaining_critical_path(i))\n    Tasks with minimum slack are scheduled first to prevent makespan violations.\n    \"\"\"\n    upward_ranks_cache: dict[str, dict[str, float]] = {}\n    deadlines_cache: dict[str, float] = {}\n\n    def ge",
+      "snippet_hash": "c439cc405fe39b8dc7125193e47c3232604438f2dc176178be6a35aae91b3c6b"
+    },
+    {
+      "source_id": "S47",
+      "chunk_id": "S47#0003",
+      "title": "scheduler/policies.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/policies.py",
+      "snippet": "Tasks with minimum slack are scheduled first to prevent makespan violations.\n    \"\"\"\n    upward_ranks_cache: dict[str, dict[str, float]] = {}\n    deadlines_cache: dict[str, float] = {}\n\n    def get_task_slack(task: Task) -> float:\n        wf_id = task.workflow_id\n        if wf_id not in upward_ranks_cache:\n            wf = workflows[wf_id]\n            upward_ranks_cache[wf_id] = wf.compute_upward_ranks(use_expected=True)\n            _, min_makespan = wf.compute_critical_path(use_expected=Tru",
+      "snippet_hash": "43261aea00ee536d40121c6c0947b6e6a94b1499002890e8161fbfc55350364f"
+    },
+    {
+      "source_id": "S48",
+      "chunk_id": "S48#0001",
+      "title": "scheduler/policies.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/policies.py",
+      "snippet": "e)\n            deadlines_cache[wf_id] = (\n                task.arrival_time + min_makespan * target_deadline_multiplier\n            )\n\n        upward_rank = upward_ranks_cache[wf_id].get(\n            task.task_id, task.expected_duration\n        )\n        deadline = deadlines_cache[wf_id]\n        # Slack = Deadline - (Current Time + Remaining Path Length)\n        slack = deadline - (current_time + upward_rank)\n        return slack\n\n    return sorted(\n        ready_tasks,\n        key=lambda t: (get_task_slack(t), -t.expected_duration, t.task_id),\n    )\n\n\ndef heft_policy(\n    ready_tasks: list[Task],\n    current_time: float,\n    workflows: dict[str, WorkflowDAG],\n) -> list[Task]:\n    \"\"\"Simplified HEFT (Heterogeneous Earliest Finish Time) Upward Rank Policy.\n\n    Computes upward rank rank_u(i) = w_i + max_{j in succ(i)} rank_u(j).\n    In a worker pool setting, tasks with highest rank_u are prioritized for the earliest available slot.\n    Tie-breaking favors earlier ready time, then arrival time.\n    \"\"\"\n    upward_ranks_cache: dict[str, dict[str, float]] = {}\n\n    def get_heft_rank(task: Task) -> float:\n        wf_id = task.workflow_id\n        if wf_id not in upward_ranks_cache:",
+      "snippet_hash": "864c76cd2b0c3409305bed6779a5ce97b84f985c6ef1cc5d335defd2aefb604c"
+    },
+    {
+      "source_id": "S48",
+      "chunk_id": "S48#0002",
+      "title": "scheduler/policies.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/policies.py",
+      "snippet": "l time.\n    \"\"\"\n    upward_ranks_cache: dict[str, dict[str, float]] = {}\n\n    def get_heft_rank(task: Task) -> float:\n        wf_id = task.workflow_id\n        if wf_id not in upward_ranks_cache:\n            wf = workflows[wf_id]\n            upward_ranks_cache[wf_id] = wf.compute_upward_ranks(use_expected=True)\n        return upward_ranks_cache[wf_id].get(task.task_id, task.expected_duration)\n\n    return sorted(\n        ready_tasks,\n        key=lambda t: (\n            -get_heft_rank(t),\n            t.ready_time if t.ready_time is not None else 0.0,\n            t.arrival_time,\n            t.task_id,\n        ),\n    )\n\n\nPOLICIES: dict[str, PolicyFunction] = {\n    \"fifo\": fifo_policy,\n    \"cpf\": critical_path_first_policy,\n    \"slack\": least_slack_first_policy,\n    \"heft\": heft_policy,\n    \"couloir\": couloir_policy,\n    # Two-phase ablation: CPF compute + STE cache (engine cache_mode=\"ste\").\n    \"two_phase\": critical_path_first_policy,\n    \"two_phase_cpf_ste\": critical_path_first_policy,\n}\n\n\ndef get_policy(name: str) -> PolicyFunction:\n    \"\"\"Retrieve scheduling policy function by name.\"\"\"\n    name_clean = name.strip().lower()\n    if name_clean not in POLICIES:\n        raise ValueError(",
+      "snippet_hash": "17151a9855e6799cfebe3893acf3c3a4e67cb84684ad02cde0ed6a21cc16b2a1"
+    },
+    {
+      "source_id": "S48",
+      "chunk_id": "S48#0003",
+      "title": "scheduler/policies.py",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/scheduler/policies.py",
+      "snippet": "def get_policy(name: str) -> PolicyFunction:\n    \"\"\"Retrieve scheduling policy function by name.\"\"\"\n    name_clean = name.strip().lower()\n    if name_clean not in POLICIES:\n        raise ValueError(\n            f\"Unknown policy '{name}'. Available: {list(POLICIES.keys())}\"\n        )\n    return POLICIES[name_clean]",
+      "snippet_hash": "2487ff25147b22ea6faf8e5d5e09c28f21e86a78f8c73e2b8010e3ef31ba754c"
+    }
+  ]
+}

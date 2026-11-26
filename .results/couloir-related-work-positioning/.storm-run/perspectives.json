@@ -1,0 +1,24 @@
+{
+  "perspectives": [
+    {
+      "id": "P0",
+      "role": "Basic fact writer",
+      "focus": "Name each system and what scarce resource it controls."
+    },
+    {
+      "id": "P1",
+      "role": "Cache-policy analyst",
+      "focus": "KVFlow STE/prefetch and Continuum TTL: residency-only mechanisms."
+    },
+    {
+      "id": "P2",
+      "role": "Joint-scheduler analyst",
+      "focus": "TOPAS joint prefix-state vs Couloir joint utility; similarities and differences."
+    },
+    {
+      "id": "P3",
+      "role": "Serving-default skeptic",
+      "focus": "RadixAttention/SGLang as honest engine baseline Couloir must beat."
+    }
+  ]
+}

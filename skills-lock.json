@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "skills": {
+    "storm": {
+      "source": "lizhouai/storm-research-skill",
+      "commit": "81fa1c9aceb869cda834b5febaee9efe092512f3",
+      "sourceType": "github",
+      "skillPath": "skills/storm/SKILL.md",
+      "computedHash": "8d545933cd8632855f3070c9b3d960da96cc60f5c944e5c3962c8d668bb31762"
+    }
+  }
+}

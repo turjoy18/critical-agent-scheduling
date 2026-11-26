@@ -1,0 +1,40 @@
+{
+  "sources": [
+    {
+      "id": 1,
+      "title": "README.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/README.md",
+      "doc_id": "README.md"
+    },
+    {
+      "id": 2,
+      "title": "docs/PAPER_DRAFT.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/PAPER_DRAFT.md",
+      "doc_id": "docs/PAPER_DRAFT.md"
+    },
+    {
+      "id": 3,
+      "title": "docs/COULOIR.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/COULOIR.md",
+      "doc_id": "docs/COULOIR.md"
+    },
+    {
+      "id": 4,
+      "title": "docs/LIVE_BACKEND.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/LIVE_BACKEND.md",
+      "doc_id": "docs/LIVE_BACKEND.md"
+    },
+    {
+      "id": 5,
+      "title": "docs/STATUS.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/STATUS.md",
+      "doc_id": "docs/STATUS.md"
+    },
+    {
+      "id": 6,
+      "title": "docs/VENUES.md",
+      "url": "file:///home/marc2026/turjoy/critical-agent-scheduling/docs/VENUES.md",
+      "doc_id": "docs/VENUES.md"
+    }
+  ]
+}

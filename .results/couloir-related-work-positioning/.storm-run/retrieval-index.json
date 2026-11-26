@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "backend_requested": "host",
+  "backend_used": "host",
+  "algorithm": "host-ranked-passthrough-v1",
+  "model": null,
+  "provider_version": "host-managed",
+  "fallback_reason": null,
+  "chunking": {
+    "size": 1200,
+    "overlap": 200,
+    "unit": "unicode-codepoints"
+  },
+  "corpus_hash": "d8747d87cce5f70a3e8e8b58530a2e622a305156299579232aa76cb648ca247c",
+  "chunks": [
+    {
+      "source_id": "S1",
+      "chunk_id": "S1#0001",
+      "title": "KVFlow (arXiv:2507.07400)",
+      "url": "https://arxiv.org/abs/2507.07400",
+      "snippet": "KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows.\nKVFlow introduces an Agent Step Graph and steps-to-execution (STE) for workflow-aware prefix-cache eviction.\nAND dependencies use max(predecessor STE)+1; conditional/OR branches use min(predecessor STE)+1.\nSmaller STE means an agent is closer to reuse, so fixed-prefix KV nodes get higher retention priority; shared radix nodes use the least-evictable child priority.\nKVFlow also proactively prefetches likely-next agents' CPU-backed KV during current GPU execution, and uses status-aware scheduling that can skip requests whose nodes are still loading.\nFocus: cache residency / prefetch for multi-agent workflows. Ready-queue compute priority is largely external to the STE cache policy.",
+      "snippet_hash": "a825bfd6715ef531d743d98b0f629f80bd190313788109b290b562d415deef94"
+    },
+    {
+      "source_id": "S2",
+      "chunk_id": "S2#0001",
+      "title": "TOPAS (arXiv:2608.25523)",
+      "url": "https://arxiv.org/abs/2608.25523",
+      "snippet": "TOPAS: Workflow-Aware Prefix-State Scheduling for Multi-Agent LLM Serving.\nTOPAS schedules a joint GPU state: resident agent KV prefixes plus admitted requests, rather than selecting requests individually.\nIt enforces shared-prefix cost once per agent plus per-request dynamic KV/output/decode reservations against available capacity.\nIts score balances workflow-DAG progress, prefix movement, preemption, one-hop downstream reuse, and task aging; GreedyPack allocates requests for each candidate prefix set.\nObjective: minimize average task-level JCT under online arrivals.\nTOPAS is the closest systems peer to Couloir's joint compute+cache framing, but is an engine-level joint state scheduler with real KV capacity constraints rather than a discrete-event sim with conceptual C.",
+      "snippet_hash": "c1da36781f8313ac31e141d4aeea3c586ad57866c08df44314880471787d78f3"
+    },
+    {
+      "source_id": "S3",
+      "chunk_id": "S3#0001",
+      "title": "Continuum (arXiv:2511.02230)",
+      "url": "https://arxiv.org/abs/2511.02230",
+      "snippet": "Continuum: Efficient and Robust Multi-Turn LLM Agent Scheduling with KV Cache Time-to-Live.\nContinuum retains an agent request's KV cache after a tool call by assigning a TTL based on observed tool-duration distributions and reload/queueing costs.\nThe scheduler pins blocks until TTL expiry, prioritizes returning requests within TTL, and frees them when the program ends or memory pressure requires eviction.\nCost/benefit model: Cost(tau,r) from memory opportunity cost; Benefit from avoided cache-miss prefill/reload and out-of-order queueing delay.\nContinuum targets multi-turn tool-using agents and inter-request intervals, not DAG-wide joint dispatch+prefetch under multi-workflow batch arrivals.",
+      "snippet_hash": "6d8649fb026e59be52aa564ecc38332a6adeeb87ec0c75d0f1e9f8331b5fd005"
+    },
+    {
+      "source_id": "S4",
+      "chunk_id": "S4#0001",
+      "title": "SGLang / RadixAttention (arXiv:2312.07104)",
+      "url": "https://arxiv.org/abs/2312.07104",
+      "snippet": "SGLang: Efficient Execution of Structured Language Model Programs (Zheng et al.).\nRadixAttention automatically reuses KV caches by storing prompt and generated-token sequences in a radix tree.\nIt matches shared prefixes, retains paged KV-cache tensors, and evicts least-recently-used leaves first; nodes in use are protected by reference counters.\nCache-aware scheduling prefers waiting requests with longest matched prefix to improve hit rate.\nRadixAttention is the production prefix-cache substrate Couloir must eventually beat or complement; it does not encode multi-agent DAG criticality or joint Couloir-style utility.",
+      "snippet_hash": "3767653901e77cf6976c83277e405c1021d54b9469ae37265360a98c4834bbe8"
+    },
+    {
+      "source_id": "S5",
+      "chunk_id": "S5#0001",
+      "title": "LMSYS SGLang RadixAttention blog",
+      "url": "https://www.lmsys.org/blog/2024-01-17-sglang/",
+      "snippet": "LMSYS blog: Fast and Expressive LLM Inference with RadixAttention and SGLang.\nDescribes retaining KV for prompts and generation results in a radix tree, LRU eviction, and cache-aware scheduling to raise hit rate.\nUseful as an accessible secondary description of the serving default Couloir's engine case study must compare against.",
+      "snippet_hash": "468a9188041a9534a0c1a8d00b56a3f5dfab4a5e7d1a12564e99b25e4ec99109"
+    },
+    {
+      "source_id": "S6",
+      "chunk_id": "S6#0001",
+      "title": "HEFT (Topcuoglu et al., TPDS 2002)",
+      "url": "https://ieeexplore.ieee.org/document/993206",
+      "snippet": "Performance-effective and low-complexity task scheduling for heterogeneous computing (HEFT).\nRanks tasks by upward rank under heterogeneous processors; classic DAG compute-only baseline.\nCouloir uses homogeneous CPF / simplified HEFT as compute-only baselines; HEFT does not manage LLM prefix KV residency.",
+      "snippet_hash": "6a6e559117c8044119a113ea00c91e134133fed16e308d11138b3dda62acc4ca"
+    },
+    {
+      "source_id": "S7",
+      "chunk_id": "S7#0001",
+      "title": "AutoGen (Wu et al., arXiv:2308.08155)",
+      "url": "https://arxiv.org/abs/2308.08155",
+      "snippet": "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation.\nFramework for composing multi-agent conversational workflows; does not schedule shared GPU decode slots or KV eviction under contention.\nMotivates the application layer where Couloir-style joint control would sit above serving engines.",
+      "snippet_hash": "269f64ac344b32a36509d5661226f8b7d17b68608692aa31d5105de892b707e0"
+    },
+    {
+      "source_id": "S8",
+      "chunk_id": "S8#0001",
+      "title": "Couloir PAPER_DRAFT (local)",
+      "url": "file://docs/PAPER_DRAFT.md",
+      "snippet": "Couloir softcopy claim: one utility jointly ranks ready tasks and keep/evict/prefetch under shared K and C.\nDurable result under workflow-scoped prefixes: large recompute cuts vs CPF+STE/FIFO+LRU; ~2-3% makespan edge mostly from CPF collapsing without freeloading.\nScoped hits largely prefetch. Related-work gap stated: KVFlow/Continuum/TOPAS-style systems optimize residency with ready-queue treated as external or differently; engines expose RadixAttention without DAG joint utilities.\nSim frozen; engine case study unlocked but paused in STATUS.",
+      "snippet_hash": "479578c8ed06c698973dc29351f438f334481a0c414dfd7b445c78c5ef121ff7"
+    }
+  ]
+}

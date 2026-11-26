@@ -1,0 +1,24 @@
+{
+  "perspectives": [
+    {
+      "id": "P0",
+      "role": "Basic fact writer",
+      "focus": "Define Couloir, K/C resources, claim, freeze status, and primary sim numbers from the repo."
+    },
+    {
+      "id": "P1",
+      "role": "Cache-systems analyst",
+      "focus": "Prefix-cache keying (workflow-scoped vs type-keyed), prefetch vs true reuse, STE/LRU/KVFlow relationship."
+    },
+    {
+      "id": "P2",
+      "role": "Serving-engine skeptic",
+      "focus": "Limits of the discrete-event abstraction, live API smoke vs paper claims, planned SGLang/RadixAttention equal-citizen case study."
+    },
+    {
+      "id": "P3",
+      "role": "Paper-positioning editor",
+      "focus": "What is publishable now (sim-primary softcopy), mentor gate, venues, and what must not be overclaimed."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "topic": "Couloir: joint compute and prefix-cache scheduling for multi-agent LLM DAGs",
+  "audience": "systems / LLM-serving researchers (MLSys/EuroSys workshop)",
+  "scope": "Corpus-restricted synthesis of this repository's Couloir claim, sim evidence, freeze posture, and planned SGLang engine case study. No external web retrieval.",
+  "recency": "repo freeze dated 2026-11; softcopy and STATUS as of checkout",
+  "language": "en",
+  "source_boundary": "local corpus under critical-agent-scheduling (docs/, README, key scheduler modules)",
+  "output_boundary": ".results/couloir-joint-prefix-cache-scheduling/",
+  "depth": "survey-style cited background from local sources only",
+  "authority": "user requested storm skill run on this repo; corpus-restricted Classic STORM"
+}

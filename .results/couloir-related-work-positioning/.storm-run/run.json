@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "run_id": "storm-310de9f9-62a5-40f7-8224-4f80b60437bb",
+  "mode": "classic",
+  "execution_backend": "guarded-agent",
+  "topic": "Related work positioning for Couloir against KVFlow, Continuum, TOPAS, and RadixAttention",
+  "artifact_slug": "related-work-positioning-for-couloir-against-kvflow-continuum-topas-and-radixattention",
+  "phase": "COMPLETE",
+  "status": "complete",
+  "attempt": 1,
+  "next_action": null,
+  "created_at": "2026-11-26T03:43:16.154528Z",
+  "updated_at": "2026-11-26T03:44:06.187927Z",
+  "artifacts": {
+    "direct_gen_outline.html": {
+      "path": "direct_gen_outline.html",
+      "format": "html",
+      "sha256": "732d36e49a04ca252179afee72b4b78b43d5f30b3edc8bd0ca9a36849656c90f"
+    },
+    "storm_gen_article.html": {
+      "path": "storm_gen_article.html",
+      "format": "html",
+      "sha256": "170298afb9cb975deea489bc57f599cba35bf8041b91f159bad89cbb2f858a8a"
+    },
+    "storm_gen_article_polished.html": {
+      "path": "storm_gen_article_polished.html",
+      "format": "html",
+      "sha256": "c427c3f4870e3b2e8405453f010727fac2b49c508736c5a5f9a4c283ea797c3c"
+    },
+    "storm_gen_outline.html": {
+      "path": "storm_gen_outline.html",
+      "format": "html",
+      "sha256": "992a8b049c89f61d9eda62b16e49ea282849e6e5ff9e72617e98c798c41bd9ad"
+    }
+  },
+  "metrics": {},
+  "errors": [],
+  "last_event_id": 12
+}

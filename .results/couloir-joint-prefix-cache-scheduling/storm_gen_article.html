@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Draft article — Couloir joint compute and prefix-cache scheduling</title>
+</head>
+<body>
+<h1>Draft: Couloir joint scheduling from the local repository</h1>
+<h2>Problem and claim</h2>
+<p>Multi-agent LLM workflows contend for worker slots K and prefix-cache capacity C. Couloir uses one utility for ready-queue order and keep/evict/prefetch.[1] The durable repo claim is a cache-joint win under multi-arrival batches with workflow-scoped prefixes: large recompute cuts versus CPF+STE / FIFO+LRU, plus a modest ~2–3% makespan edge.[1][2]</p>
+<h2>System model in this repository</h2>
+<p>Default weights are (1, 0.25, 1.5, 0.5, 0.25). The same ranking drives cache actions.[3] Default cache_key_mode=workflow_agent keys by workflow_id:agent_type so workflows do not share prefixes merely by agent type; agent_type mode inflates batch hits and is sensitivity-only.[2][3]</p>
+<h2>Frozen sim evidence</h2>
+<p>At batch M=20 with workflow-scoped keys, fanout Couloir recompute is 2048 versus CPF 75776, makespan 587 versus 604; random shows 1536 versus 76800 recompute and 698 versus 717 makespan.[1] Scoped hit rates ~0.96–0.98 versus CPF ~0.06–0.10 are largely a prefetch gap, not cross-repeat reuse.[2]</p>
+<h2>What is not a paper claim</h2>
+<p>Free-tier Gemini/Groq live runs are integration smoke; provider latency dominates and there is no local KV store on that path.[4] The SGLang engine case study remains paused in STATUS pending mentor direction, with Colab/Kaggle before any ≤US$50 spend.[5]</p>
+<h2>Positioning</h2>
+<p>Related work cited in-repo includes KVFlow STE/prefetch, HEFT, and AutoGen; serving engines expose RadixAttention without DAG joint utilities.[2] Softcopy targets arXiv cs.DC plus a serving workshop after mentor related-work and authorship.[6]</p>
+</body>
+</html>
